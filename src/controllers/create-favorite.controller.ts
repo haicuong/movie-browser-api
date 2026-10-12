@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { favorites } from "../app.js";
+import { favorites } from "../data/favorites.js";
 import { DuplicateError, ValidationError } from "../errors/errors.js";
 import { Movie } from "../types/movie.js";
 import { validateMovie, validateMovieId } from "../utilities.js";

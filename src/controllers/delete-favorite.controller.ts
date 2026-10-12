@@ -1,23 +1,26 @@
 import { Request, Response } from "express";
-import { favorites } from "../app.js";
-import { validateMovieId } from "../utilities.js";
+import { favorites } from "../data/favorites.js";
 import { NotFoundError, ValidationError } from "../errors/errors.js";
+import { validateMovieId } from "../utilities.js";
 
-export default function getFavorite(
+export default function deleteFavorite(
   req: Request<{ id: string }>,
   res: Response,
 ) {
   const { id } = req.params;
   const parsedId = validateMovieId(id);
+
   if (!parsedId) {
     throw new ValidationError("Invalid movie ID");
   }
 
-  const movie = favorites.find((movie) => movie.id === parsedId);
+  const movieIndex = favorites.findIndex((movie) => movie.id === parsedId);
 
-  if (!movie) {
+  if (movieIndex === -1) {
     throw new NotFoundError(`Movie with ID ${parsedId} not found in favorites`);
   }
 
-  return res.status(200).json(movie);
+  favorites.splice(movieIndex, 1);
+
+  return res.sendStatus(204);
 }
