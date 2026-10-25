@@ -1,0 +1,37 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client"
+  output   = "./generated"
+}
+
+model User {
+  id        Int        @id @default(autoincrement())
+  email     String     @unique
+  name      String
+  favorites Favorite[]
+
+  @@map("users")
+}
+
+model Favorite {
+  id     Int @id @default(autoincrement())
+  userId Int @map("user_id")
+  tmdbId Int @map("tmdb_id")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, tmdbId])
+  @@map("favorites")
+}
+
+model Movie {
+  tmdbId     Int     @id @map("tmdb_id")
+  title      String
+  overview   String
+  posterPath String? @map("poster_path")
+
+  @@map("movies")
+}

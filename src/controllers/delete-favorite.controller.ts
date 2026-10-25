@@ -1,14 +1,14 @@
 import { Request, Response } from "express";
 import { favorites } from "../data/favorites.js";
 import { NotFoundError, ValidationError } from "../errors/errors.js";
-import { validateMovieId } from "../utilities.js";
+import { validateStringMovieId } from "../utilities.js";
 
 export default function deleteFavorite(
   req: Request<{ id: string }>,
   res: Response,
 ) {
   const { id } = req.params;
-  const parsedId = validateMovieId(id);
+  const parsedId = validateStringMovieId(id);
 
   if (!parsedId) {
     throw new ValidationError("Invalid movie ID");

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { favorites } from "../data/favorites.js";
 import { NotFoundError, ValidationError } from "../errors/errors.js";
-import { validateMovie, validateMovieId } from "../utilities.js";
+import { validateMovie, validateStringMovieId } from "../utilities.js";
 import { Movie } from "../types/movie.js";
 
 export default function replaceFavorite(
@@ -9,7 +9,7 @@ export default function replaceFavorite(
   res: Response,
 ) {
   const { id } = req.params;
-  const parsedId = validateMovieId(id);
+  const parsedId = validateStringMovieId(id);
   if (!parsedId) {
     throw new ValidationError("Invalid movie ID");
   }

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { favorites } from "../data/favorites.js";
-import { validateMovieId } from "../utilities.js";
+import { validateStringMovieId } from "../utilities.js";
 import { NotFoundError, ValidationError } from "../errors/errors.js";
 
 export default function getFavorite(
@@ -8,7 +8,7 @@ export default function getFavorite(
   res: Response,
 ) {
   const { id } = req.params;
-  const parsedId = validateMovieId(id);
+  const parsedId = validateStringMovieId(id);
   if (!parsedId) {
     throw new ValidationError("Invalid movie ID");
   }
