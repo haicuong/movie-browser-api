@@ -9,7 +9,7 @@ export default async function createFavorite(
   req: Request<{}, {}, Movie>,
   res: Response,
 ) {
-  //TODO: Authentication and authorization should be implemented
+  //TODO: remove this temporary user and implement authentication.
   const { validatedEmail, validatedName } = validateUser(req);
 
   const validatedMovie = validateMovie(req.body);
@@ -75,6 +75,6 @@ async function createFavoriteHandler(userId: number, tmdbId: number) {
       throw new DuplicateError("Favorite already exists");
     }
 
-    throw new Error("Failed to create favorite");
+    throw error;
   }
 }

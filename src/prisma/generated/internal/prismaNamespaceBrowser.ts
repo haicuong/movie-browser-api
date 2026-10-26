@@ -82,7 +82,6 @@ export type UserScalarFieldEnum = (typeof UserScalarFieldEnum)[keyof typeof User
 
 
 export const FavoriteScalarFieldEnum = {
-  id: 'id',
   userId: 'userId',
   tmdbId: 'tmdbId',
   createdAt: 'createdAt'

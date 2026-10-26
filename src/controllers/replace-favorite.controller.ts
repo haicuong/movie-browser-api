@@ -1,5 +1,4 @@
 import { Request, Response } from "express";
-import { favorites } from "../data/favorites.js";
 import { NotFoundError, ValidationError } from "../errors/errors.js";
 import {
   getCertainDBUser,
