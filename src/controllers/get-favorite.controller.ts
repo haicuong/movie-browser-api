@@ -1,23 +1,42 @@
 import { Request, Response } from "express";
 import { favorites } from "../data/favorites.js";
-import { validateStringMovieId } from "../utilities.js";
+import {
+  getCertainDBUser,
+  validateStringMovieId,
+  validateUser,
+} from "../utilities.js";
 import { NotFoundError, ValidationError } from "../errors/errors.js";
+import { prisma } from "../prisma/prisma.js";
 
-export default function getFavorite(
-  req: Request<{ id: string }>,
+export default async function getFavorite(
+  req: Request<{ tmdbId: string }>,
   res: Response,
 ) {
-  const { id } = req.params;
-  const parsedId = validateStringMovieId(id);
-  if (!parsedId) {
-    throw new ValidationError("Invalid movie ID");
-  }
+  const { validatedEmail, validatedName } = validateUser(req);
 
-  const movie = favorites.find((movie) => movie.tmdbId === parsedId);
+  const user = await getCertainDBUser({
+    email: validatedEmail,
+    name: validatedName,
+  });
 
-  if (!movie) {
+  const { tmdbId } = req.params;
+  const parsedId = validateStringMovieId(tmdbId);
+
+  const favorite = await prisma.favorite.findUnique({
+    where: {
+      userId_tmdbId: {
+        userId: user.id,
+        tmdbId: parsedId,
+      },
+    },
+    include: {
+      movie: true,
+    },
+  });
+
+  if (!favorite) {
     throw new NotFoundError(`Movie with ID ${parsedId} not found in favorites`);
   }
 
-  return res.status(200).json(movie);
+  return res.status(200).json(favorite.movie);
 }

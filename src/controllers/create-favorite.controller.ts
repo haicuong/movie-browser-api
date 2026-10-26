@@ -21,6 +21,7 @@ export default async function createFavorite(
     overview: validatedMovie.overview,
   };
 
+  //TODO: THIS IS A BUG, THIS CHANGE MOVIE DATA APPLIED TO ALL USERS.
   await prisma.movie.upsert({
     where: { tmdbId: validatedMovie.tmdbId },
     update: {

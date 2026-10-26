@@ -1,26 +1,48 @@
 import { Request, Response } from "express";
-import { favorites } from "../data/favorites.js";
-import { NotFoundError, ValidationError } from "../errors/errors.js";
-import { validateStringMovieId } from "../utilities.js";
+import { NotFoundError } from "../errors/errors.js";
+import {
+  getCertainDBUser,
+  validateStringMovieId,
+  validateUser,
+} from "../utilities.js";
+import { prisma } from "../prisma/prisma.js";
+import { Prisma } from "../prisma/generated/client.js";
 
-export default function deleteFavorite(
-  req: Request<{ id: string }>,
+export default async function deleteFavorite(
+  req: Request<{ tmdbId: string }>,
   res: Response,
 ) {
-  const { id } = req.params;
-  const parsedId = validateStringMovieId(id);
+  const { tmdbId } = req.params;
+  const parsedId = validateStringMovieId(tmdbId);
 
-  if (!parsedId) {
-    throw new ValidationError("Invalid movie ID");
+  const { validatedEmail, validatedName } = validateUser(req);
+
+  const user = await getCertainDBUser({
+    email: validatedEmail,
+    name: validatedName,
+  });
+
+  try {
+    await prisma.favorite.delete({
+      where: {
+        userId_tmdbId: {
+          userId: user.id,
+          tmdbId: parsedId,
+        },
+      },
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2025"
+    ) {
+      throw new NotFoundError(
+        `Movie with ID ${parsedId} not found in user's favorites`,
+      );
+    }
+
+    throw error;
   }
-
-  const movieIndex = favorites.findIndex((movie) => movie.tmdbId === parsedId);
-
-  if (movieIndex === -1) {
-    throw new NotFoundError(`Movie with ID ${parsedId} not found in favorites`);
-  }
-
-  favorites.splice(movieIndex, 1);
 
   return res.sendStatus(204);
 }

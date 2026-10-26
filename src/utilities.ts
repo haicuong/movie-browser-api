@@ -10,16 +10,17 @@ export function validateMovieId(id: number): number | undefined {
   return id;
 }
 
-export function validateStringMovieId(id: string): number | undefined {
+export function validateStringMovieId(id: string): number {
+  console.log("Validating movie ID:", id);
   const parsedId = validateMovieId(parseInt(id, 10));
   if (!parsedId) {
-    return undefined;
+    throw new ValidationError("Invalid movie ID");
   } else return parsedId;
 }
 
-export function validatePageNumber(page: string): number {
+export function validatePageNumber(page: string | undefined): number {
   if (page === undefined || page === null || page === "") {
-    throw new ValidationError("Invalid page number");
+    return 1;
   }
 
   const parsedPage = parseInt(page, 10);

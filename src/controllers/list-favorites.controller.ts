@@ -6,12 +6,15 @@ import {
 } from "../utilities.js";
 import { prisma } from "../prisma/prisma.js";
 
-export default async function listFavorites(req: Request, res: Response) {
+export default async function listFavorites(
+  req: Request<{}, {}, {}, { page?: string }>,
+  res: Response,
+) {
   const { validatedEmail, validatedName } = validateUser(req);
 
   const { page } = req.query;
 
-  const validatedPage = validatePageNumber(page as string);
+  const validatedPage = validatePageNumber(page);
 
   const user = await getCertainDBUser({
     email: validatedEmail,
@@ -32,5 +35,5 @@ export default async function listFavorites(req: Request, res: Response) {
     },
   });
 
-  return res.status(200).json(favorites);
+  return res.status(200).json(favorites.map((favorite) => favorite.movie));
 }
