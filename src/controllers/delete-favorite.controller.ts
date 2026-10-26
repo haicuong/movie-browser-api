@@ -14,7 +14,7 @@ export default function deleteFavorite(
     throw new ValidationError("Invalid movie ID");
   }
 
-  const movieIndex = favorites.findIndex((movie) => movie.id === parsedId);
+  const movieIndex = favorites.findIndex((movie) => movie.tmdbId === parsedId);
 
   if (movieIndex === -1) {
     throw new NotFoundError(`Movie with ID ${parsedId} not found in favorites`);

@@ -14,7 +14,7 @@ export default function replaceFavorite(
     throw new ValidationError("Invalid movie ID");
   }
 
-  const movieIndex = favorites.findIndex((movie) => movie.id === parsedId);
+  const movieIndex = favorites.findIndex((movie) => movie.tmdbId === parsedId);
 
   if (movieIndex === -1) {
     throw new NotFoundError(`Movie with ID ${parsedId} not found in favorites`);
@@ -26,7 +26,7 @@ export default function replaceFavorite(
     throw new ValidationError("Invalid request body");
   }
 
-  if (newMovie.id !== parsedId) {
+  if (newMovie.tmdbId !== parsedId) {
     throw new ValidationError(
       "Movie ID in the body does not match the ID in the URL",
     );

@@ -1,4 +1,7 @@
+import { Request } from "express";
 import { Movie } from "./types/movie.js";
+import { NotFoundError, ValidationError } from "./errors/errors.js";
+import { prisma } from "./prisma/prisma.js";
 
 export function validateMovieId(id: number): number | undefined {
   if (typeof id !== "number" || isNaN(id) || id <= 0) {
@@ -14,19 +17,31 @@ export function validateStringMovieId(id: string): number | undefined {
   } else return parsedId;
 }
 
-export function validateMovie(movie: Movie): Movie | undefined {
+export function validatePageNumber(page: string): number {
+  if (page === undefined || page === null || page === "") {
+    throw new ValidationError("Invalid page number");
+  }
+
+  const parsedPage = parseInt(page, 10);
+  if (isNaN(parsedPage) || parsedPage <= 0) {
+    throw new ValidationError("Invalid page number");
+  }
+  return parsedPage;
+}
+
+export function validateMovie(movie: Movie): Movie {
   if (
     !(movie instanceof Object) ||
-    movie.id === undefined ||
+    movie.tmdbId === undefined ||
     movie.title === undefined ||
     movie.overview === undefined ||
     movie.poster_path === undefined ||
-    !validateMovieId(movie.id) ||
+    !validateMovieId(movie.tmdbId) ||
     typeof movie.title !== "string" ||
     typeof movie.overview !== "string" ||
     (movie.poster_path !== null && typeof movie.poster_path !== "string")
   ) {
-    return undefined;
+    throw new ValidationError("Invalid movie request body");
   }
   return movie;
 }
@@ -43,4 +58,57 @@ export function validateUserName(name: string): string | undefined {
     return undefined;
   }
   return name;
+}
+
+export function validateUser(req: Request): {
+  validatedEmail: string;
+  validatedName: string;
+} {
+  const userEmail = req.headers["user-email"] as string;
+  const userName = req.headers["user-name"] as string;
+
+  const validatedEmail = validateUserEmail(userEmail);
+  const validatedName = validateUserName(userName);
+
+  if (!validatedEmail) {
+    throw new ValidationError("Invalid user email header");
+  }
+
+  if (!validatedName) {
+    throw new ValidationError("Invalid user name header");
+  }
+
+  return {
+    validatedEmail,
+    validatedName,
+  };
+}
+
+export async function getDBUser({
+  email,
+  name,
+}: {
+  email: string;
+  name: string;
+}) {
+  return await prisma.user.findFirst({
+    where: {
+      email,
+      name,
+    },
+  });
+}
+
+export async function getCertainDBUser({
+  email,
+  name,
+}: {
+  email: string;
+  name: string;
+}) {
+  const user = await getDBUser({ email, name });
+  if (!user) {
+    throw new NotFoundError(`User not found`);
+  }
+  return user;
 }

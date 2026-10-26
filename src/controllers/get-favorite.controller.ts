@@ -13,7 +13,7 @@ export default function getFavorite(
     throw new ValidationError("Invalid movie ID");
   }
 
-  const movie = favorites.find((movie) => movie.id === parsedId);
+  const movie = favorites.find((movie) => movie.tmdbId === parsedId);
 
   if (!movie) {
     throw new NotFoundError(`Movie with ID ${parsedId} not found in favorites`);

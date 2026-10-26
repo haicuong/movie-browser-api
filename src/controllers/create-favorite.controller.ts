@@ -1,12 +1,7 @@
 import { Request, Response } from "express";
-import { favorites } from "../data/favorites.js";
-import { DuplicateError, ValidationError } from "../errors/errors.js";
+import { DuplicateError } from "../errors/errors.js";
 import { Movie } from "../types/movie.js";
-import {
-  validateMovie,
-  validateUserEmail,
-  validateUserName,
-} from "../utilities.js";
+import { getDBUser, validateMovie, validateUser } from "../utilities.js";
 import { prisma } from "../prisma/prisma.js";
 import { Prisma } from "../prisma/generated/client.js";
 
@@ -15,29 +10,35 @@ export default async function createFavorite(
   res: Response,
 ) {
   //TODO: Authentication and authorization should be implemented
-  const userEmail = req.headers["user-email"] as string;
-  const userName = req.headers["user-name"] as string;
-
-  const validatedEmail = validateUserEmail(userEmail);
-  if (!validatedEmail) {
-    throw new ValidationError("Invalid user email header");
-  }
-
-  const validatedName = validateUserName(userName);
-  if (!validatedName) {
-    throw new ValidationError("Invalid user name header");
-  }
+  const { validatedEmail, validatedName } = validateUser(req);
 
   const validatedMovie = validateMovie(req.body);
-  if (!validatedMovie) {
-    throw new ValidationError("Invalid request body");
-  }
 
-  const userInDB = await prisma.user.findFirst({
-    where: {
-      email: validatedEmail,
-      name: validatedName,
+  const newMovie: Movie = {
+    tmdbId: validatedMovie.tmdbId,
+    title: validatedMovie.title,
+    poster_path: validatedMovie.poster_path,
+    overview: validatedMovie.overview,
+  };
+
+  await prisma.movie.upsert({
+    where: { tmdbId: validatedMovie.tmdbId },
+    update: {
+      title: validatedMovie.title,
+      posterPath: validatedMovie.poster_path,
+      overview: validatedMovie.overview,
     },
+    create: {
+      tmdbId: validatedMovie.tmdbId,
+      title: validatedMovie.title,
+      posterPath: validatedMovie.poster_path,
+      overview: validatedMovie.overview,
+    },
+  });
+
+  const userInDB = await getDBUser({
+    email: validatedEmail,
+    name: validatedName,
   });
 
   if (!userInDB) {
@@ -48,32 +49,10 @@ export default async function createFavorite(
       },
     });
 
-    await createFavoriteHandler(user.id, validatedMovie.id);
+    await createFavoriteHandler(user.id, validatedMovie.tmdbId);
   } else {
-    await createFavoriteHandler(userInDB.id, validatedMovie.id);
+    await createFavoriteHandler(userInDB.id, validatedMovie.tmdbId);
   }
-
-  const newMovie: Movie = {
-    id: validatedMovie.id,
-    title: validatedMovie.title,
-    poster_path: validatedMovie.poster_path,
-    overview: validatedMovie.overview,
-  };
-
-  await prisma.movie.upsert({
-    where: { tmdbId: validatedMovie.id },
-    update: {
-      title: validatedMovie.title,
-      posterPath: validatedMovie.poster_path,
-      overview: validatedMovie.overview,
-    },
-    create: {
-      tmdbId: validatedMovie.id,
-      title: validatedMovie.title,
-      posterPath: validatedMovie.poster_path,
-      overview: validatedMovie.overview,
-    },
-  });
 
   return res.status(201).json(newMovie);
 }

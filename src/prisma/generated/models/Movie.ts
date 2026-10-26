@@ -208,6 +208,7 @@ export type MovieWhereInput = {
   title?: Prisma.StringFilter<"Movie"> | string
   overview?: Prisma.StringFilter<"Movie"> | string
   posterPath?: Prisma.StringNullableFilter<"Movie"> | string | null
+  favorites?: Prisma.FavoriteListRelationFilter
 }
 
 export type MovieOrderByWithRelationInput = {
@@ -215,6 +216,7 @@ export type MovieOrderByWithRelationInput = {
   title?: Prisma.SortOrder
   overview?: Prisma.SortOrder
   posterPath?: Prisma.SortOrderInput | Prisma.SortOrder
+  favorites?: Prisma.FavoriteOrderByRelationAggregateInput
 }
 
 export type MovieWhereUniqueInput = Prisma.AtLeast<{
@@ -225,6 +227,7 @@ export type MovieWhereUniqueInput = Prisma.AtLeast<{
   title?: Prisma.StringFilter<"Movie"> | string
   overview?: Prisma.StringFilter<"Movie"> | string
   posterPath?: Prisma.StringNullableFilter<"Movie"> | string | null
+  favorites?: Prisma.FavoriteListRelationFilter
 }, "tmdbId">
 
 export type MovieOrderByWithAggregationInput = {
@@ -254,6 +257,7 @@ export type MovieCreateInput = {
   title: string
   overview: string
   posterPath?: string | null
+  favorites?: Prisma.FavoriteCreateNestedManyWithoutMovieInput
 }
 
 export type MovieUncheckedCreateInput = {
@@ -261,6 +265,7 @@ export type MovieUncheckedCreateInput = {
   title: string
   overview: string
   posterPath?: string | null
+  favorites?: Prisma.FavoriteUncheckedCreateNestedManyWithoutMovieInput
 }
 
 export type MovieUpdateInput = {
@@ -268,6 +273,7 @@ export type MovieUpdateInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   overview?: Prisma.StringFieldUpdateOperationsInput | string
   posterPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  favorites?: Prisma.FavoriteUpdateManyWithoutMovieNestedInput
 }
 
 export type MovieUncheckedUpdateInput = {
@@ -275,6 +281,7 @@ export type MovieUncheckedUpdateInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   overview?: Prisma.StringFieldUpdateOperationsInput | string
   posterPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  favorites?: Prisma.FavoriteUncheckedUpdateManyWithoutMovieNestedInput
 }
 
 export type MovieCreateManyInput = {
@@ -296,6 +303,11 @@ export type MovieUncheckedUpdateManyInput = {
   title?: Prisma.StringFieldUpdateOperationsInput | string
   overview?: Prisma.StringFieldUpdateOperationsInput | string
   posterPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type MovieScalarRelationFilter = {
+  is?: Prisma.MovieWhereInput
+  isNot?: Prisma.MovieWhereInput
 }
 
 export type MovieCountOrderByAggregateInput = {
@@ -327,10 +339,97 @@ export type MovieSumOrderByAggregateInput = {
   tmdbId?: Prisma.SortOrder
 }
 
+export type MovieCreateNestedOneWithoutFavoritesInput = {
+  create?: Prisma.XOR<Prisma.MovieCreateWithoutFavoritesInput, Prisma.MovieUncheckedCreateWithoutFavoritesInput>
+  connectOrCreate?: Prisma.MovieCreateOrConnectWithoutFavoritesInput
+  connect?: Prisma.MovieWhereUniqueInput
+}
+
+export type MovieUpdateOneRequiredWithoutFavoritesNestedInput = {
+  create?: Prisma.XOR<Prisma.MovieCreateWithoutFavoritesInput, Prisma.MovieUncheckedCreateWithoutFavoritesInput>
+  connectOrCreate?: Prisma.MovieCreateOrConnectWithoutFavoritesInput
+  upsert?: Prisma.MovieUpsertWithoutFavoritesInput
+  connect?: Prisma.MovieWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.MovieUpdateToOneWithWhereWithoutFavoritesInput, Prisma.MovieUpdateWithoutFavoritesInput>, Prisma.MovieUncheckedUpdateWithoutFavoritesInput>
+}
+
 export type NullableStringFieldUpdateOperationsInput = {
   set?: string | null
 }
 
+export type MovieCreateWithoutFavoritesInput = {
+  tmdbId: number
+  title: string
+  overview: string
+  posterPath?: string | null
+}
+
+export type MovieUncheckedCreateWithoutFavoritesInput = {
+  tmdbId: number
+  title: string
+  overview: string
+  posterPath?: string | null
+}
+
+export type MovieCreateOrConnectWithoutFavoritesInput = {
+  where: Prisma.MovieWhereUniqueInput
+  create: Prisma.XOR<Prisma.MovieCreateWithoutFavoritesInput, Prisma.MovieUncheckedCreateWithoutFavoritesInput>
+}
+
+export type MovieUpsertWithoutFavoritesInput = {
+  update: Prisma.XOR<Prisma.MovieUpdateWithoutFavoritesInput, Prisma.MovieUncheckedUpdateWithoutFavoritesInput>
+  create: Prisma.XOR<Prisma.MovieCreateWithoutFavoritesInput, Prisma.MovieUncheckedCreateWithoutFavoritesInput>
+  where?: Prisma.MovieWhereInput
+}
+
+export type MovieUpdateToOneWithWhereWithoutFavoritesInput = {
+  where?: Prisma.MovieWhereInput
+  data: Prisma.XOR<Prisma.MovieUpdateWithoutFavoritesInput, Prisma.MovieUncheckedUpdateWithoutFavoritesInput>
+}
+
+export type MovieUpdateWithoutFavoritesInput = {
+  tmdbId?: Prisma.IntFieldUpdateOperationsInput | number
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  overview?: Prisma.StringFieldUpdateOperationsInput | string
+  posterPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type MovieUncheckedUpdateWithoutFavoritesInput = {
+  tmdbId?: Prisma.IntFieldUpdateOperationsInput | number
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  overview?: Prisma.StringFieldUpdateOperationsInput | string
+  posterPath?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+
+/**
+ * Count Type MovieCountOutputType
+ */
+
+export type MovieCountOutputType = {
+  favorites: number
+}
+
+export type MovieCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  favorites?: boolean | MovieCountOutputTypeCountFavoritesArgs
+}
+
+/**
+ * MovieCountOutputType without action
+ */
+export type MovieCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the MovieCountOutputType
+   */
+  select?: Prisma.MovieCountOutputTypeSelect<ExtArgs> | null
+}
+
+/**
+ * MovieCountOutputType without action
+ */
+export type MovieCountOutputTypeCountFavoritesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FavoriteWhereInput
+}
 
 
 export type MovieSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -338,6 +437,8 @@ export type MovieSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   title?: boolean
   overview?: boolean
   posterPath?: boolean
+  favorites?: boolean | Prisma.Movie$favoritesArgs<ExtArgs>
+  _count?: boolean | Prisma.MovieCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["movie"]>
 
 export type MovieSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -362,10 +463,18 @@ export type MovieSelectScalar = {
 }
 
 export type MovieOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"tmdbId" | "title" | "overview" | "posterPath", ExtArgs["result"]["movie"]>
+export type MovieInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  favorites?: boolean | Prisma.Movie$favoritesArgs<ExtArgs>
+  _count?: boolean | Prisma.MovieCountOutputTypeDefaultArgs<ExtArgs>
+}
+export type MovieIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
+export type MovieIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {}
 
 export type $MoviePayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   name: "Movie"
-  objects: {}
+  objects: {
+    favorites: Prisma.$FavoritePayload<ExtArgs>[]
+  }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     tmdbId: number
     title: string
@@ -765,6 +874,7 @@ readonly fields: MovieFieldRefs;
  */
 export interface Prisma__MovieClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
+  favorites<T extends Prisma.Movie$favoritesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Movie$favoritesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FavoritePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -815,6 +925,10 @@ export type MovieFindUniqueArgs<ExtArgs extends runtime.Types.Extensions.Interna
    */
   omit?: Prisma.MovieOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MovieInclude<ExtArgs> | null
+  /**
    * Filter, which Movie to fetch.
    */
   where: Prisma.MovieWhereUniqueInput
@@ -833,6 +947,10 @@ export type MovieFindUniqueOrThrowArgs<ExtArgs extends runtime.Types.Extensions.
    */
   omit?: Prisma.MovieOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MovieInclude<ExtArgs> | null
+  /**
    * Filter, which Movie to fetch.
    */
   where: Prisma.MovieWhereUniqueInput
@@ -850,6 +968,10 @@ export type MovieFindFirstArgs<ExtArgs extends runtime.Types.Extensions.Internal
    * Omit specific fields from the Movie
    */
   omit?: Prisma.MovieOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MovieInclude<ExtArgs> | null
   /**
    * Filter, which Movie to fetch.
    */
@@ -899,6 +1021,10 @@ export type MovieFindFirstOrThrowArgs<ExtArgs extends runtime.Types.Extensions.I
    */
   omit?: Prisma.MovieOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MovieInclude<ExtArgs> | null
+  /**
    * Filter, which Movie to fetch.
    */
   where?: Prisma.MovieWhereInput
@@ -946,6 +1072,10 @@ export type MovieFindManyArgs<ExtArgs extends runtime.Types.Extensions.InternalA
    * Omit specific fields from the Movie
    */
   omit?: Prisma.MovieOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MovieInclude<ExtArgs> | null
   /**
    * Filter, which Movies to fetch.
    */
@@ -995,6 +1125,10 @@ export type MovieCreateArgs<ExtArgs extends runtime.Types.Extensions.InternalArg
    */
   omit?: Prisma.MovieOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MovieInclude<ExtArgs> | null
+  /**
    * The data needed to create a Movie.
    */
   data: Prisma.XOR<Prisma.MovieCreateInput, Prisma.MovieUncheckedCreateInput>
@@ -1042,6 +1176,10 @@ export type MovieUpdateArgs<ExtArgs extends runtime.Types.Extensions.InternalArg
    * Omit specific fields from the Movie
    */
   omit?: Prisma.MovieOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MovieInclude<ExtArgs> | null
   /**
    * The data needed to update a Movie.
    */
@@ -1109,6 +1247,10 @@ export type MovieUpsertArgs<ExtArgs extends runtime.Types.Extensions.InternalArg
    */
   omit?: Prisma.MovieOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MovieInclude<ExtArgs> | null
+  /**
    * The filter to search for the Movie to update in case it exists.
    */
   where: Prisma.MovieWhereUniqueInput
@@ -1135,6 +1277,10 @@ export type MovieDeleteArgs<ExtArgs extends runtime.Types.Extensions.InternalArg
    */
   omit?: Prisma.MovieOmit<ExtArgs> | null
   /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MovieInclude<ExtArgs> | null
+  /**
    * Filter which Movie to delete.
    */
   where: Prisma.MovieWhereUniqueInput
@@ -1155,6 +1301,30 @@ export type MovieDeleteManyArgs<ExtArgs extends runtime.Types.Extensions.Interna
 }
 
 /**
+ * Movie.favorites
+ */
+export type Movie$favoritesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Favorite
+   */
+  select?: Prisma.FavoriteSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Favorite
+   */
+  omit?: Prisma.FavoriteOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FavoriteInclude<ExtArgs> | null
+  where?: Prisma.FavoriteWhereInput
+  orderBy?: Prisma.FavoriteOrderByWithRelationInput | Prisma.FavoriteOrderByWithRelationInput[]
+  cursor?: Prisma.FavoriteWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FavoriteScalarFieldEnum | Prisma.FavoriteScalarFieldEnum[]
+}
+
+/**
  * Movie without action
  */
 export type MovieDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1166,4 +1336,8 @@ export type MovieDefaultArgs<ExtArgs extends runtime.Types.Extensions.InternalAr
    * Omit specific fields from the Movie
    */
   omit?: Prisma.MovieOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.MovieInclude<ExtArgs> | null
 }
