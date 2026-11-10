@@ -11,9 +11,9 @@ router.get("/health", (req, res) => {
   return res.status(200).json({ status: "ok" });
 });
 router.get("/favorites", listFavorites);
-router.get("/favorites/:id", getFavorite);
+router.get("/favorites/:tmdbId", getFavorite);
 router.post("/favorites", createFavorite);
-router.put("/favorites/:id", replaceFavorite);
-router.delete("/favorites/:id", deleteFavorite);
+router.put("/favorites/:tmdbId", replaceFavorite);
+router.delete("/favorites/:tmdbId", deleteFavorite);
 
 export default router;
