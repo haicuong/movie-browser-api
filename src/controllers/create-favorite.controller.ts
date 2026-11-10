@@ -1,9 +1,11 @@
 import { Request, Response } from "express";
 import { DuplicateError } from "../errors/errors.js";
-import { Movie } from "../types/movie.js";
-import { getDBUser, validateMovie, validateUser } from "../utilities.js";
+import { Movie } from "../schemas/movie.js";
+import { getDBUser } from "../utilities.js";
 import { prisma } from "../prisma/prisma.js";
 import { Prisma } from "../prisma/generated/client.js";
+import { validateMovie } from "../validation/movie.js";
+import { validateUser } from "../validation/user.js";
 
 export default async function createFavorite(
   req: Request<{}, {}, Movie>,

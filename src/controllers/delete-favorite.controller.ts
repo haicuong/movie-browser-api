@@ -1,12 +1,10 @@
 import { Request, Response } from "express";
 import { NotFoundError } from "../errors/errors.js";
-import {
-  getCertainDBUser,
-  validateStringMovieId,
-  validateUser,
-} from "../utilities.js";
+import { getCertainDBUser } from "../utilities.js";
 import { prisma } from "../prisma/prisma.js";
 import { Prisma } from "../prisma/generated/client.js";
+import { validateStringMovieId } from "../validation/movie.js";
+import { validateUser } from "../validation/user.js";
 
 export default async function deleteFavorite(
   req: Request<{ tmdbId: string }>,

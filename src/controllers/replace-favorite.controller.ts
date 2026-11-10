@@ -1,13 +1,10 @@
 import { Request, Response } from "express";
 import { NotFoundError, ValidationError } from "../errors/errors.js";
-import {
-  getCertainDBUser,
-  validateMovie,
-  validateStringMovieId,
-  validateUser,
-} from "../utilities.js";
-import { Movie } from "../types/movie.js";
+import { getCertainDBUser } from "../utilities.js";
+import { Movie } from "../schemas/movie.js";
 import { prisma } from "../prisma/prisma.js";
+import { validateMovie, validateStringMovieId } from "../validation/movie.js";
+import { validateUser } from "../validation/user.js";
 
 export default async function replaceFavorite(
   req: Request<{ tmdbId: string }, {}, Movie>,

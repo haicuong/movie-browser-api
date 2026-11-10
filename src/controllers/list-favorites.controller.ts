@@ -1,20 +1,15 @@
 import { Request, Response } from "express";
-import {
-  getCertainDBUser,
-  validatePageNumber,
-  validateUser,
-} from "../utilities.js";
+import { getCertainDBUser } from "../utilities.js";
 import { prisma } from "../prisma/prisma.js";
+import { validatePaginationQuery, validateUser } from "../validation/user.js";
 
 export default async function listFavorites(
-  req: Request<{}, {}, {}, { page?: string }>,
+  req: Request<{}, {}, {}, { page?: string; limit?: string }>,
   res: Response,
 ) {
   const { validatedEmail, validatedName } = validateUser(req);
 
-  const { page } = req.query;
-
-  const validatedPage = validatePageNumber(page);
+  const { page, limit } = validatePaginationQuery(req.query);
 
   const user = await getCertainDBUser({
     email: validatedEmail,
@@ -25,8 +20,8 @@ export default async function listFavorites(
     where: {
       userId: user.id,
     },
-    take: 20,
-    skip: (validatedPage - 1) * 20,
+    take: limit,
+    skip: (page - 1) * limit,
     orderBy: {
       createdAt: "desc",
     },

@@ -1,11 +1,9 @@
 import { Request, Response } from "express";
-import {
-  getCertainDBUser,
-  validateStringMovieId,
-  validateUser,
-} from "../utilities.js";
+import { getCertainDBUser } from "../utilities.js";
 import { NotFoundError, ValidationError } from "../errors/errors.js";
 import { prisma } from "../prisma/prisma.js";
+import { validateStringMovieId } from "../validation/movie.js";
+import { validateUser } from "../validation/user.js";
 
 export default async function getFavorite(
   req: Request<{ tmdbId: string }>,

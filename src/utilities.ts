@@ -1,8 +1,8 @@
 import { Request } from "express";
-import { Movie } from "./types/movie.js";
+// import { Movie } from "./schemas/movie.js";
 import { NotFoundError, ValidationError } from "./errors/errors.js";
 import { prisma } from "./prisma/prisma.js";
-
+/* 
 export function validateMovieId(id: number): number | undefined {
   if (typeof id !== "number" || isNaN(id) || id <= 0) {
     return undefined;
@@ -17,8 +17,8 @@ export function validateStringMovieId(id: string): number {
     throw new ValidationError("Invalid movie ID");
   } else return parsedId;
 }
-
-export function validatePageNumber(page: string | undefined): number {
+ */
+/* export function validatePageNumber(page: string | undefined): number {
   if (page === undefined || page === null || page === "") {
     return 1;
   }
@@ -28,8 +28,8 @@ export function validatePageNumber(page: string | undefined): number {
     throw new ValidationError("Invalid page number");
   }
   return parsedPage;
-}
-
+} */
+/* 
 export function validateMovie(movie: Movie): Movie {
   if (
     !(movie instanceof Object) ||
@@ -46,22 +46,22 @@ export function validateMovie(movie: Movie): Movie {
   }
   return movie;
 }
-
-export function validateUserEmail(email: string): string | undefined {
+ */
+/* export function validateUserEmail(email: string): string | undefined {
   if (email.trim() === "" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return undefined;
   }
   return email;
-}
+} */
 
-export function validateUserName(name: string): string | undefined {
+/* export function validateUserName(name: string): string | undefined {
   if (name.trim() === "" || name.length < 2 || name.length > 50) {
     return undefined;
   }
   return name;
-}
+} */
 
-export function validateUser(req: Request): {
+/* export function validateUser(req: Request): {
   validatedEmail: string;
   validatedName: string;
 } {
@@ -83,7 +83,7 @@ export function validateUser(req: Request): {
     validatedEmail,
     validatedName,
   };
-}
+} */
 
 export async function getDBUser({
   email,
