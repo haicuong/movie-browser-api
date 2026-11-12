@@ -7,12 +7,12 @@ import deleteFavorite from "../controllers/delete-favorite.controller.js";
 
 const router = express.Router();
 
-router.get("/health", (req, res) => {
+router.get("/health", (_, res) => {
   return res.status(200).json({ status: "ok" });
 });
 router.get("/favorites", listFavorites);
 router.get("/favorites/:tmdbId", getFavorite);
-router.post("/favorites", createFavorite);
+router.post("/favorites/:tmdbId", createFavorite);
 router.put("/favorites/:tmdbId", replaceFavorite);
 router.delete("/favorites/:tmdbId", deleteFavorite);
 

@@ -1,10 +1,24 @@
-import type { NextFunction, Request, Response } from "express";
+import type {
+  NextFunction,
+  Request,
+  Response,
+  ErrorRequestHandler,
+} from "express";
 import { AppError } from "../errors/errors.js";
 
 interface BodyParserError extends SyntaxError {
   status?: number;
   body?: string;
   type?: string;
+}
+
+interface PayloadTooLargeError extends Error {
+  expected?: number;
+  length?: number;
+  limit?: number;
+  type?: string;
+  status?: number;
+  statusCode?: number;
 }
 
 function isBodyParserError(err: Error): err is BodyParserError {
@@ -17,9 +31,20 @@ function isBodyParserError(err: Error): err is BodyParserError {
   );
 }
 
+function isPayloadTooLargeError(err: Error): err is PayloadTooLargeError {
+  return (
+    typeof (err as PayloadTooLargeError).expected === "number" &&
+    typeof (err as PayloadTooLargeError).length === "number" &&
+    typeof (err as PayloadTooLargeError).limit === "number" &&
+    ((err as PayloadTooLargeError).type === "entity.too.large" ||
+      (err as PayloadTooLargeError).status === 413 ||
+      (err as PayloadTooLargeError).statusCode === 413)
+  );
+}
+
 export default function errorHandler(
   err: Error,
-  req: Request,
+  _: Request,
   res: Response,
   next: NextFunction,
 ) {
@@ -33,6 +58,11 @@ export default function errorHandler(
         code: "VALIDATION_ERROR",
         message: "Invalid JSON payload",
       },
+    });
+  } else if (isPayloadTooLargeError(err)) {
+    return res.status(413).json({
+      error: "Payload Too Large",
+      message: "Request body cannot exceed 10KB.",
     });
   } else if (err instanceof AppError) {
     return res.status(err.httpStatus).json({

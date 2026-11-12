@@ -1,4 +1,4 @@
-import { Request } from "express";
+// import { Request } from "express";
 // import { Movie } from "./schemas/movie.js";
 import { NotFoundError, ValidationError } from "./errors/errors.js";
 import { prisma } from "./prisma/prisma.js";
