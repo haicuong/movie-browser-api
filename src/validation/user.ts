@@ -1,5 +1,5 @@
 import { Request } from "express";
-import { ValidationError } from "../errors/errors.js";
+import { UnauthorizedError, ValidationError } from "../errors/errors.js";
 import {
   PaginationQuerySchema,
   UserEmailSchema,
@@ -40,8 +40,18 @@ export function validateUser(req: Request): {
   const userEmail = req.headers["user-email"] as string;
   const userName = req.headers["user-name"] as string;
 
-  const validatedEmail = validateUserEmail(userEmail);
-  const validatedName = validateUserName(userName);
+  let validatedEmail: string;
+  let validatedName: string;
+  try {
+    validatedEmail = validateUserEmail(userEmail);
+    validatedName = validateUserName(userName);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      throw new UnauthorizedError("Invalid user credentials");
+    } else {
+      throw error;
+    }
+  }
 
   return {
     validatedEmail,
