@@ -1,4 +1,5 @@
 import express from "express";
+import "./config/env.js";
 import router from "./routes/api.routes.js";
 import requestLogger from "./middleware/request-logger.js";
 import errorHandler from "./middleware/error-handler.js";

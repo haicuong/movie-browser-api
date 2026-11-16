@@ -1,4 +1,4 @@
-import "dotenv/config";
+import env from "../config/env.js";
 
 const ALLOWED_PATH = /^\/(movie|trending|search)(\/[A-Za-z0-9_-]+)*$/;
 
@@ -21,10 +21,7 @@ export default async function tmdbRequest<T = any>(
   path: string,
   params: Record<string, string> = {},
 ): Promise<tmdbRequestResponse<T>> {
-  const token = process.env.TMDB_TOKEN;
-  if (!token) {
-    return { success: false, error: "Server is missing TMDB_TOKEN" };
-  }
+  const token = env.tmdbToken;
 
   if (!ALLOWED_PATH.test(path)) {
     return { success: false, error: "Invalid path" };
