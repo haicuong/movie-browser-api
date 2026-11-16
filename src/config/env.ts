@@ -18,6 +18,7 @@ const EnvSchema = zod
       .trim()
       .min(16, "JWT_SECRET must be at least 16 characters"),
     JWT_EXPIRES_IN: zod.string().trim().min(1).default("7d"),
+    COOKIE_SAME_SITE: zod.enum(["lax", "strict", "none"]).default("lax"),
     CORS_ORIGIN: zod
       .string()
       .trim()
@@ -60,6 +61,7 @@ const env = {
   port: parsed.data.PORT,
   jwtSecret: parsed.data.JWT_SECRET,
   jwtExpiresIn: parsed.data.JWT_EXPIRES_IN,
+  cookieSameSite: parsed.data.COOKIE_SAME_SITE,
   corsOrigins: parsed.data.CORS_ORIGIN,
   tmdbToken: parsed.data.TMDB_TOKEN,
   isProduction: parsed.data.NODE_ENV === "production",
