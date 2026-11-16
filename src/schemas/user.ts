@@ -37,13 +37,3 @@ export const LoginSchema = zod.object({
 });
 
 export type AuthCredentials = zod.infer<typeof RegisterSchema>;
-
-// Legacy schemas retained temporarily until Phase 5 removes header-based auth.
-export const UserEmailSchema = zod
-  .email("Invalid email format")
-  .min(1, "Email is required");
-
-export const UserNameSchema = zod
-  .string()
-  .min(2, "Name must be at least 2 characters long")
-  .max(50, "Name must be at most 50 characters long");

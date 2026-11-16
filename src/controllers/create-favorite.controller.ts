@@ -1,19 +1,26 @@
 import { Request, Response } from "express";
-import { AppError, DuplicateError, NotFoundError } from "../errors/errors.js";
-import { Movie } from "../schemas/movie.js";
-import { getDBUser } from "../utilities.js";
-import { prisma } from "../prisma/prisma.js";
+import {
+  AUTH_COOKIE_NAME,
+  getAuthCookieClearOptions,
+} from "../config/cookies.js";
+import {
+  AppError,
+  DuplicateError,
+  NotFoundError,
+  UnauthorizedError,
+} from "../errors/errors.js";
+import { getAuthenticatedUserId } from "../middleware/auth.js";
 import { Prisma } from "../prisma/generated/client.js";
-import { validateMovie, validateStringMovieId } from "../validation/movie.js";
-import { validateUser } from "../validation/user.js";
+import { prisma } from "../prisma/prisma.js";
+import { Movie } from "../schemas/movie.js";
 import tmdbRequest from "../services/tmdb-proxy.js";
+import { validateMovie, validateStringMovieId } from "../validation/movie.js";
 
 export default async function createFavorite(
   req: Request<{ tmdbId: string }>,
   res: Response,
 ) {
-  //TODO: remove this temporary user and implement authentication.
-  const { validatedEmail, validatedName } = validateUser(req);
+  const userId = getAuthenticatedUserId(req);
 
   const { tmdbId } = req.params;
   const parsedId = validateStringMovieId(tmdbId);
@@ -69,44 +76,26 @@ export default async function createFavorite(
     };
   }
 
-  const userInDB = await getDBUser({
-    email: validatedEmail,
-    name: validatedName,
-  });
-
-  if (!userInDB) {
-    const user = await prisma.user.create({
-      data: {
-        email: validatedEmail,
-        name: validatedName,
-      },
-    });
-
-    await createFavoriteHandler(user.id, movie.tmdbId);
-  } else {
-    await createFavoriteHandler(userInDB.id, movie.tmdbId);
-  }
-
-  return res.status(201).json(movie);
-}
-
-async function createFavoriteHandler(userId: number, tmdbId: number) {
   try {
-    const favorite = await prisma.favorite.create({
+    await prisma.favorite.create({
       data: {
-        userId: userId,
-        tmdbId: tmdbId,
+        userId,
+        tmdbId: movie.tmdbId,
       },
     });
-    return favorite;
   } catch (error) {
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      throw new DuplicateError("Favorite already exists");
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === "P2002") {
+        throw new DuplicateError("Favorite already exists");
+      }
+      if (error.code === "P2003") {
+        res.clearCookie(AUTH_COOKIE_NAME, getAuthCookieClearOptions());
+        throw new UnauthorizedError("User no longer exists");
+      }
     }
 
     throw error;
   }
+
+  return res.status(201).json(movie);
 }

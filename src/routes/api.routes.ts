@@ -18,9 +18,9 @@ router.post("/login", authLimiter, login);
 router.post("/logout", logout);
 router.get("/me", requireAuth, getMe);
 
-router.get("/favorites", listFavorites);
-router.get("/favorites/:tmdbId", getFavorite);
-router.post("/favorites/:tmdbId", createFavorite);
-router.delete("/favorites/:tmdbId", deleteFavorite);
+router.get("/favorites", requireAuth, listFavorites);
+router.get("/favorites/:tmdbId", requireAuth, getFavorite);
+router.post("/favorites/:tmdbId", requireAuth, createFavorite);
+router.delete("/favorites/:tmdbId", requireAuth, deleteFavorite);
 
 export default router;

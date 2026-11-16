@@ -1,30 +1,23 @@
 import { Request, Response } from "express";
 import { NotFoundError } from "../errors/errors.js";
-import { getCertainDBUser } from "../utilities.js";
-import { prisma } from "../prisma/prisma.js";
+import { getAuthenticatedUserId } from "../middleware/auth.js";
 import { Prisma } from "../prisma/generated/client.js";
+import { prisma } from "../prisma/prisma.js";
 import { validateStringMovieId } from "../validation/movie.js";
-import { validateUser } from "../validation/user.js";
 
 export default async function deleteFavorite(
   req: Request<{ tmdbId: string }>,
   res: Response,
 ) {
+  const userId = getAuthenticatedUserId(req);
   const { tmdbId } = req.params;
   const parsedId = validateStringMovieId(tmdbId);
-
-  const { validatedEmail, validatedName } = validateUser(req);
-
-  const user = await getCertainDBUser({
-    email: validatedEmail,
-    name: validatedName,
-  });
 
   try {
     await prisma.favorite.delete({
       where: {
         userId_tmdbId: {
-          userId: user.id,
+          userId,
           tmdbId: parsedId,
         },
       },

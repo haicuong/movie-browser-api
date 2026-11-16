@@ -1,24 +1,18 @@
 import { Request, Response } from "express";
-import { getCertainDBUser } from "../utilities.js";
+import { getAuthenticatedUserId } from "../middleware/auth.js";
 import { prisma } from "../prisma/prisma.js";
-import { validatePaginationQuery, validateUser } from "../validation/user.js";
+import { validatePaginationQuery } from "../validation/user.js";
 
 export default async function listFavorites(
   req: Request<{}, {}, {}, { page?: string; limit?: string }>,
   res: Response,
 ) {
-  const { validatedEmail, validatedName } = validateUser(req);
-
+  const userId = getAuthenticatedUserId(req);
   const { page, limit } = validatePaginationQuery(req.query);
-
-  const user = await getCertainDBUser({
-    email: validatedEmail,
-    name: validatedName,
-  });
 
   const favorites = await prisma.favorite.findMany({
     where: {
-      userId: user.id,
+      userId,
     },
     take: limit,
     skip: (page - 1) * limit,

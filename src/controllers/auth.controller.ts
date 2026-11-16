@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 import { AUTH_COOKIE_NAME, getAuthCookieClearOptions } from "../config/cookies.js";
 import { DuplicateError, UnauthorizedError } from "../errors/errors.js";
+import { getAuthenticatedUserId } from "../middleware/auth.js";
 import { Prisma } from "../prisma/generated/client.js";
 import { prisma } from "../prisma/prisma.js";
 import {
@@ -71,12 +72,10 @@ export function logout(_req: Request, res: Response) {
 }
 
 export async function getMe(req: Request, res: Response) {
-  if (!req.userId) {
-    throw new UnauthorizedError("Authentication required");
-  }
+  const userId = getAuthenticatedUserId(req);
 
   const user = await prisma.user.findUnique({
-    where: { id: req.userId },
+    where: { id: userId },
     select: PUBLIC_USER_SELECT,
   });
 
