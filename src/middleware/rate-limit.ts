@@ -1,4 +1,4 @@
-import rateLimit from "express-rate-limit";
+import { rateLimit } from "express-rate-limit";
 import env from "../config/env.js";
 
 const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;

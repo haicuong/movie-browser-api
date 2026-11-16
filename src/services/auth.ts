@@ -1,4 +1,4 @@
-import argon2 from "argon2";
+import { argon2id, hash, verify } from "argon2";
 import type { Response } from "express";
 import jwt from "jsonwebtoken";
 import { AUTH_COOKIE_NAME, getAuthCookieOptions } from "../config/cookies.js";
@@ -6,14 +6,14 @@ import env from "../config/env.js";
 import { UnauthorizedError } from "../errors/errors.js";
 
 export async function hashPassword(password: string): Promise<string> {
-  return argon2.hash(password, { type: argon2.argon2id });
+  return hash(password, { type: argon2id });
 }
 
 export async function verifyPassword(
   passwordHash: string,
   password: string,
 ): Promise<boolean> {
-  return argon2.verify(passwordHash, password);
+  return verify(passwordHash, password);
 }
 
 export function signAuthToken(userId: number): string {

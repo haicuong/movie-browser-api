@@ -1,4 +1,4 @@
-import dotenv from "dotenv";
+import { config as loadDotenv } from "dotenv";
 import { defineConfig } from "@neon/config/v1";
 import { parseEnv } from "@neon/env";
 import { PrismaClient } from "./generated/client.js";
@@ -6,7 +6,7 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import { attachDatabasePool } from "@vercel/functions";
 
-dotenv.config({ path: [".env.local", ".env"], quiet: true });
+loadDotenv({ path: [".env.local", ".env"], quiet: true });
 
 // Keep policy local to src/ so tsconfig rootDir ("./src") stays intact.
 const neonPolicy = defineConfig({ auth: false });

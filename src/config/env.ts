@@ -1,8 +1,8 @@
-import dotenv from "dotenv";
+import { config as loadDotenv } from "dotenv";
 import * as zod from "zod";
 
 // Load .env as a fallback for standalone scripts; existing process.env keys win.
-dotenv.config({ path: [".env.local", ".env"], quiet: true });
+loadDotenv({ path: [".env.local", ".env"], quiet: true });
 
 const EnvSchema = zod
   .object({
