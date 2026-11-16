@@ -7,17 +7,7 @@ import { NotFoundError } from "./errors/errors.js";
 import helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import rateLimit from "express-rate-limit";
-
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 100,
-  standardHeaders: "draft-8",
-  legacyHeaders: false,
-  message: {
-    error: "Too many requests, please try again later.",
-  },
-});
+import { appLimiter } from "./middleware/rate-limit.js";
 
 const app = express();
 
@@ -38,7 +28,7 @@ app.use(cookieParser());
 
 app.use(requestLogger);
 
-app.use(limiter);
+app.use(appLimiter);
 
 app.use(express.json({ limit: "10kb" }));
 

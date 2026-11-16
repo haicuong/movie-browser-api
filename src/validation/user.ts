@@ -1,10 +1,31 @@
 import { Request } from "express";
+import * as zod from "zod";
 import { UnauthorizedError, ValidationError } from "../errors/errors.js";
 import {
+  type AuthCredentials,
+  LoginSchema,
   PaginationQuerySchema,
+  RegisterSchema,
   UserEmailSchema,
   UserNameSchema,
 } from "../schemas/user.js";
+
+function parseWithSchema<T>(schema: zod.ZodType<T>, input: unknown): T {
+  const result = schema.safeParse(input);
+  if (!result.success) {
+    const message = result.error.issues[0]?.message ?? "Invalid request body";
+    throw new ValidationError(message);
+  }
+  return result.data;
+}
+
+export function validateRegisterBody(body: unknown): AuthCredentials {
+  return parseWithSchema(RegisterSchema, body);
+}
+
+export function validateLoginBody(body: unknown): AuthCredentials {
+  return parseWithSchema(LoginSchema, body);
+}
 
 export function validatePaginationQuery(query: unknown): {
   page: number;
@@ -17,6 +38,7 @@ export function validatePaginationQuery(query: unknown): {
   return parsedQuery.data;
 }
 
+// Legacy validators retained temporarily until Phase 5 removes header-based auth.
 export function validateUserEmail(email: unknown): string {
   const parsedEmail = UserEmailSchema.safeParse(email);
   if (!parsedEmail.success) {
