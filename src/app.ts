@@ -4,7 +4,7 @@ import router from "./routes/api.routes.js";
 import requestLogger from "./middleware/request-logger.js";
 import errorHandler from "./middleware/error-handler.js";
 import { NotFoundError } from "./errors/errors.js";
-import { default as helmet } from "helmet";
+import * as helmet from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { appLimiter } from "./middleware/rate-limit.js";
@@ -13,7 +13,7 @@ const app = express();
 
 app.set("trust proxy", 1);
 
-app.use(helmet());
+app.use(helmet.default());
 
 app.use(
   cors({
