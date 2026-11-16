@@ -10,9 +10,7 @@
     "forceConsistentCasingInFileNames": true,
     "sourceMap": true,
     "types": ["node"],
-    "noEmitOnError": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true
+    "noEmitOnError": true
   },
   "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist"]

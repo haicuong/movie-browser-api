@@ -4,7 +4,7 @@ import router from "./routes/api.routes.js";
 import requestLogger from "./middleware/request-logger.js";
 import errorHandler from "./middleware/error-handler.js";
 import { NotFoundError } from "./errors/errors.js";
-import helmet from "helmet";
+import { default as helmet } from "helmet";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import { appLimiter } from "./middleware/rate-limit.js";
