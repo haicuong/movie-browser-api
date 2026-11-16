@@ -5,7 +5,7 @@ Movie Browser API is an Express and TypeScript REST API for user authentication 
 ## Technology stack
 
 - **Runtime & Language:** Node.js with TypeScript (`^5.9.3`), ESM (`"type": "module"`)
-- **HTTP & Security:** Express `^5.3.0`, `helmet`, `cors`, `cookie-parser`, `express-rate-limit`
+- **HTTP & Security:** Express `^5.3.0`, custom OWASP security headers (`src/middleware/security-headers.ts`), `cors`, `cookie-parser`, `express-rate-limit`
 - **Database & ORM:** PostgreSQL (Neon) + Prisma ORM `^7.10.1` (`@prisma/adapter-pg`, `pg`), `@vercel/functions` (`attachDatabasePool`)
 - **Auth & Validation:** `argon2` (Argon2id), `jsonwebtoken`, `zod` `^4.6.7`
 - **Testing & Tooling:** Vitest `^5.1.0`, Supertest, `tsx`, `dotenv`, `dotenv-cli`
@@ -47,7 +47,8 @@ Movie Browser API is an Express and TypeScript REST API for user authentication 
 │   │   ├── auth.ts                    requireAuth JWT cookie verification & userId helper
 │   │   ├── error-handler.ts           Centralized JSON error responses
 │   │   ├── rate-limit.ts              appLimiter (100/15m) & authLimiter (15/15m)
-│   │   └── request-logger.ts          Request completion logging
+│   │   ├── request-logger.ts          Request completion logging
+│   │   └── security-headers.ts        OWASP HTTP response security headers
 │   ├── prisma/
 │   │   ├── generated/                 Prisma-generated client artifacts
 │   │   ├── migrations/                Prisma SQL schema migrations
