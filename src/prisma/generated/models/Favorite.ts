@@ -373,10 +373,6 @@ export type FavoriteUncheckedUpdateManyWithoutUserNestedInput = {
   deleteMany?: Prisma.FavoriteScalarWhereInput | Prisma.FavoriteScalarWhereInput[]
 }
 
-export type DateTimeFieldUpdateOperationsInput = {
-  set?: Date | string
-}
-
 export type FavoriteCreateNestedManyWithoutMovieInput = {
   create?: Prisma.XOR<Prisma.FavoriteCreateWithoutMovieInput, Prisma.FavoriteUncheckedCreateWithoutMovieInput> | Prisma.FavoriteCreateWithoutMovieInput[] | Prisma.FavoriteUncheckedCreateWithoutMovieInput[]
   connectOrCreate?: Prisma.FavoriteCreateOrConnectWithoutMovieInput | Prisma.FavoriteCreateOrConnectWithoutMovieInput[]
