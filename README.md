@@ -4,7 +4,7 @@ Movie Browser API is an Express and TypeScript REST API for user authentication 
 
 ## Technology stack
 
-- **Runtime & Language:** Node.js with TypeScript (`^7.0.2`), ESM (`"type": "module"`)
+- **Runtime & Language:** Node.js with TypeScript (`^5.9.3`), ESM (`"type": "module"`)
 - **HTTP & Security:** Express `^5.3.0`, `helmet`, `cors`, `cookie-parser`, `express-rate-limit`
 - **Database & ORM:** PostgreSQL (Neon) + Prisma ORM `^7.10.1` (`@prisma/adapter-pg`, `pg`), `@vercel/functions` (`attachDatabasePool`)
 - **Auth & Validation:** `argon2` (Argon2id), `jsonwebtoken`, `zod` `^4.6.7`
@@ -205,15 +205,16 @@ For complete request/response schemas and error codes, see [`API_CONTRACT.md`](.
 - **Build Command:** Set Vercel's Build Command to `npm run vercel-build` (or ensure `vercel-build` runs). When `VERCEL_ENV === "production"`, it runs `npx prisma migrate deploy` as a safety fallback before `npm run build`; Preview builds skip production migrations automatically.
 - **Required Vercel Environment Variables (Production):**
   - `DATABASE_URL` = Neon `production` **pooled** URL (`-pooler`)
-  - `DATABASE_URL_UNPOOLED` = Neon `production` **direct** URL (used by `prisma migrate deploy` in `vercel-build`)
+  - `DATABASE_URL_UNPOOLED` = Neon `production` **direct** URL (used by `prisma migrate deploy` in `vercel-build` and `prisma.config.ts`)
   - `JWT_SECRET` = strong production secret (32+ chars)
   - `TMDB_TOKEN` = TMDb Read Access Token
   - `CORS_ORIGIN` = `https://movie-browser.haicuong.me` (no trailing `/`)
-  - `NODE_ENV` = `production`
+  - *(Do **not** set `NODE_ENV=production` manually in Vercel's UI—Vercel injects it at runtime automatically, and setting it in build env vars can cause `npm install` to skip `devDependencies` like `prisma`.)*
+- **TypeScript & dependencies note:** `typescript` is intentionally pinned to `^5.9.3` (and `typescript` + runtime `@types/*` packages live in `dependencies` in `package.json`) because TypeScript 7.x removed `lib/typescript.js`, causing Vercel's `@vercel/node` compiler-executable path to fail with `TS2688: Cannot find type definition file for 'node'`. Upgrade back to `7.x` only after verifying `@vercel/node` supports it.
 - **Testing a Vercel Preview deployment:** Scope these overrides to **Preview** in Vercel Environment Variables:
   - `CORS_ORIGIN` = your preview frontend origin(s)
   - `COOKIE_SAME_SITE` = `none` (required if frontend and API previews run on separate `*.vercel.app` subdomains, which browsers treat as cross-site)
-  - `DATABASE_URL` = a Neon dev/preview branch pooled URL
+  - `DATABASE_URL` & `DATABASE_URL_UNPOOLED` = a Neon dev/preview branch's pooled & direct URLs (`prisma generate` evaluates `prisma.config.ts`)
 
 ## Architecture notes & serverless limitations
 
