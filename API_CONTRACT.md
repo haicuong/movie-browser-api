@@ -2,76 +2,88 @@
 
 This document describes the HTTP behavior implemented by the Movie Browser API.
 
-The service is an Express and TypeScript REST API backed by PostgreSQL and Prisma ORM. Favorites are stored persistently per user. Requests to favorites endpoints identify the acting user through custom HTTP request headers.
-
-Unless stated otherwise, JSON responses use `Content-Type: application/json`. The examples use `http://localhost:3000`; use the configured `PORT` when it differs.
+The service is an Express and TypeScript REST API backed by PostgreSQL (Neon) and Prisma ORM. Unless stated otherwise, JSON responses use `Content-Type: application/json`, and request bodies are limited to `10KB`. Examples assume `http://localhost:3000`.
 
 ---
 
-## User identification headers
+## Authentication & cookies
 
-Authentication is currently header-based. Requests to all `/favorites` endpoints require two user headers:
+Authentication uses **JWTs stored in an `HttpOnly` cookie** named `token` (signed with `JWT_SECRET`, default expiration `7d`). The JWT payload stores only `{ userId }`.
 
-| Header       | Type   | Rules                                                                                                                                           |
-| ------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `user-email` | string | Required. Must be a valid email format matching `/^[^\s@]+@[^\s@]+\.[^\s@]+$/` after trimming.                                                  |
-| `user-name`  | string | Required. Must be a non-empty string between 2 and 50 characters in length after trimming.                                                    |
+### Cookie attributes
 
-### User resolution behavior
+| Environment | `httpOnly` | `secure` | `sameSite` | `path` | `maxAge` |
+| --- | --- | --- | --- | --- | --- |
+| Development / Test (`NODE_ENV !== "production"`) | `true` | `false` | `lax` | `/` | 7 days |
+| Production (`NODE_ENV === "production"`) | `true` | `true` | `COOKIE_SAME_SITE` (default `lax`) | `/` | 7 days |
 
-- **`POST /favorites`**: Looks up the user in the database by `email` and `name`. If the user record does not exist, the user is automatically created with the provided credentials.
-- **`GET /favorites`**, **`GET /favorites/:tmdbId`**, **`PUT /favorites/:tmdbId`**, **`DELETE /favorites/:tmdbId`**: Looks up the user by `email` and `name`. If no matching user exists in the database, the request fails with `404 NOT_FOUND` (`"User not found"`).
-- Missing, empty, or invalid user headers immediately return `400 VALIDATION_ERROR`.
+- **Browser clients (CORS):** CORS is configured with `credentials: true` for origins listed in `CORS_ORIGIN` (no trailing slash). Browser requests from an allowed origin (such as `https://movie-browser.haicuong.me` talking to a `*.haicuong.me` API subdomain) must include `credentials: "include"` (`withCredentials: true` in Axios) so cookies are stored and sent automatically.
+- **Allowed CORS methods & headers:** `GET`, `POST`, `DELETE`, `OPTIONS`; allowed request header `Content-Type`.
+- **Cross-site previews:** If a browser frontend and API are deployed on separate sites (such as two different `*.vercel.app` origins), set `COOKIE_SAME_SITE=none` in that environment so `SameSite=None; Secure` cookies are sent cross-site.
+- **Protected routes:** `GET /me`, `GET /favorites`, `GET /favorites/:tmdbId`, `POST /favorites/:tmdbId`, and `DELETE /favorites/:tmdbId` require a valid `token` cookie verified by `requireAuth`. Missing, malformed, or expired tokens return `401 UNAUTHORIZED`.
 
 ---
 
-## Data models and validation
+## Rate limits
 
-### Movie model
+- **Global (`appLimiter`):** `100` requests per `15` minutes per IP across all endpoints (`draft-8` `RateLimit-*` headers).
+- **Auth endpoints (`authLimiter`):** `15` requests per `15` minutes per IP on `POST /register` and `POST /login` (skipped when `NODE_ENV === "test"`).
+- Exceeding a limit returns `429 Too Many Requests`:
+  - Global limit: `{ "error": "Too many requests, please try again later." }`
+  - Auth limit: `{ "error": "Too many authentication attempts, please try again later." }`
 
-A movie represents TMDb (The Movie Database) metadata.
+*(In serverless deployments, `express-rate-limit` uses an in-memory store, so counters are per warm function instance.)*
 
-#### Request body schema (`POST`, `PUT`)
+---
 
-Requests sending a movie body must provide a JSON object with the following required fields:
+## Data models & validation rules
 
-| Field         | Type             | Rules                                                                                  |
-| ------------- | ---------------- | -------------------------------------------------------------------------------------- |
-| `tmdbId`      | positive integer | Positive number (`> 0`, integer). Identifies the movie in TMDb.                        |
-| `title`       | string           | Required movie title string.                                                           |
-| `overview`    | string           | Required movie summary/synopsis string.                                                |
-| `poster_path` | string or `null` | Required poster image path (string or explicit `null`).                                |
+### Auth credentials (`POST /register`, `POST /login`)
 
-The movie body validator verifies that all four fields exist and match the accepted types. Unknown additional properties are tolerated by the validator.
+- `email`: string, trimmed and lowercased, must be a valid email format.
+- `password`:
+  - On `POST /register`: string, `8` to `128` characters.
+  - On `POST /login`: string, `1` to `128` characters.
 
-#### Response representation
+### User response shape
 
-- **`POST /favorites`**: Returns `201 Created` with the movie object formatted using the input property name `poster_path`:
+Returned by `POST /register`, `POST /login`, and `GET /me` (never includes `passwordHash`):
+
+```json
+{
+  "id": 1,
+  "email": "alice@example.com",
+  "createdAt": "2026-11-16T00:00:00.000Z"
+}
+```
+
+### Movie representation
+
+- **`POST /favorites/:tmdbId`** returns `201 Created` using `poster_path`:
   ```json
   {
-    "tmdbId": 101,
-    "title": "Example Movie",
-    "poster_path": "/example.jpg",
-    "overview": "An example movie overview."
+    "tmdbId": 550,
+    "title": "Fight Club",
+    "poster_path": "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg",
+    "overview": "A ticking-time-bomb insomniac..."
   }
   ```
-- **Database query responses (`GET /favorites`, `GET /favorites/:tmdbId`, `PUT /favorites/:tmdbId`)**: Return records directly from Prisma ORM, where the database column `poster_path` is mapped to the camelCase property `posterPath`:
+- **`GET /favorites` and `GET /favorites/:tmdbId`** return Prisma `Movie` records using `posterPath`:
   ```json
   {
-    "tmdbId": 101,
-    "title": "Example Movie",
-    "overview": "An example movie overview.",
-    "posterPath": "/example.jpg"
+    "tmdbId": 550,
+    "title": "Fight Club",
+    "overview": "A ticking-time-bomb insomniac...",
+    "posterPath": "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg"
   }
   ```
 
-### Path parameters
+### Path & query parameters
 
-- `:tmdbId`: String representation of a positive integer (e.g. `/favorites/101`). Parsed via `parseInt(tmdbId, 10)`. Must be greater than `0`. If invalid or non-numeric, the API returns `400 VALIDATION_ERROR` with message `"Invalid movie ID"`.
-
-### Query parameters
-
-- `page`: Optional query parameter on `GET /favorites` (e.g. `?page=2`). Parsed via `parseInt(page, 10)`. Defaults to `1` when omitted or empty. If provided and invalid (non-integer, `<= 0`, or non-numeric), returns `400 VALIDATION_ERROR` with message `"Invalid page number"`.
+- `:tmdbId`: Positive integer (`> 0`). Invalid values return `400 VALIDATION_ERROR` (`"Invalid movie ID"`).
+- `?page` (optional on `GET /favorites`): Positive integer, defaults to `1` when omitted or empty.
+- `?limit` (optional on `GET /favorites`): Positive integer, defaults to `20` when omitted or empty.
+- Invalid `?page` or `?limit` returns `400 VALIDATION_ERROR` (`"Invalid pagination query parameters"`).
 
 ---
 
@@ -79,201 +91,187 @@ The movie body validator verifies that all four fields exist and match the accep
 
 ### `GET /health`
 
-Health check endpoint. Confirms that the Express service is operational.
+Confirms that the service is running.
 
-**Headers:** None required.
+- **Auth:** None
+- **Success:** `200 OK`
+  ```json
+  {
+    "status": "ok"
+  }
+  ```
 
-**Request:** No parameters or body.
+---
 
-**Success:** `200 OK`
+### `POST /register`
 
-```json
-{
-  "status": "ok"
-}
-```
+Creates a new user account with an Argon2id password hash, sets the `token` cookie immediately, and returns the created user.
+
+- **Auth:** None (`authLimiter`: `15` req / `15`m)
+- **Request body:**
+  ```json
+  {
+    "email": "alice@example.com",
+    "password": "StrongPassword123!"
+  }
+  ```
+- **Success:** `201 Created` + `Set-Cookie: token=<jwt>; HttpOnly; Path=/; SameSite=...`
+  ```json
+  {
+    "id": 1,
+    "email": "alice@example.com",
+    "createdAt": "2026-11-16T00:00:00.000Z"
+  }
+  ```
+- **Error responses:**
+  - `400 VALIDATION_ERROR`: Invalid email, password under 8 or over 128 characters, or invalid JSON payload.
+  - `409 DUPLICATE_ERROR`: `"Email is already registered"` (checked after trimming and lowercasing).
+  - `429 Too Many Requests`: Auth rate limit exceeded.
+
+---
+
+### `POST /login`
+
+Verifies email and password against the stored Argon2id hash, sets the `token` cookie, and returns the user.
+
+- **Auth:** None (`authLimiter`: `15` req / `15`m)
+- **Request body:**
+  ```json
+  {
+    "email": "alice@example.com",
+    "password": "StrongPassword123!"
+  }
+  ```
+- **Success:** `200 OK` + `Set-Cookie: token=<jwt>; HttpOnly; Path=/; SameSite=...`
+  ```json
+  {
+    "id": 1,
+    "email": "alice@example.com",
+    "createdAt": "2026-11-16T00:00:00.000Z"
+  }
+  ```
+- **Error responses:**
+  - `400 VALIDATION_ERROR`: Invalid email, missing/overlong password, or invalid JSON payload.
+  - `401 UNAUTHORIZED`: `"Invalid email or password"` (returned identically for unknown email and wrong password).
+  - `429 Too Many Requests`: Auth rate limit exceeded.
+
+---
+
+### `POST /logout`
+
+Clears the `token` cookie using matching cookie attributes.
+
+- **Auth:** None
+- **Request body:** None
+- **Success:** `204 No Content` (empty body, clears `token` cookie)
+
+---
+
+### `GET /me`
+
+Returns the currently authenticated user's profile from the database.
+
+- **Auth:** Required (`token` cookie)
+- **Success:** `200 OK`
+  ```json
+  {
+    "id": 1,
+    "email": "alice@example.com",
+    "createdAt": "2026-11-16T00:00:00.000Z"
+  }
+  ```
+- **Error responses:**
+  - `401 UNAUTHORIZED`: Missing/invalid/expired `token` cookie, or user record no longer exists (also clears cookie).
 
 ---
 
 ### `GET /favorites`
 
-Returns a paginated list of movies favorited by the identified user.
+Returns a paginated list of movies favorited by the authenticated user, ordered by `createdAt` descending.
 
-**Headers:**
-- `user-email`: string (required)
-- `user-name`: string (required)
-
-**Query parameters:**
-- `page` (optional): Positive integer page number. Defaults to `1`.
-
-**Pagination & ordering:**
-- Items per page: `20` (`take: 20`, `skip: (page - 1) * 20`).
-- Order: Sorted by favorite addition timestamp descending (`createdAt: "desc"`).
-
-**Success:** `200 OK`
-
-```json
-[
-  {
-    "tmdbId": 101,
-    "title": "Example Movie",
-    "overview": "An example movie overview.",
-    "posterPath": "/example.jpg"
-  }
-]
-```
-
-When the user has no favorites on the requested page, returns an empty array `[]`.
-
-**Error responses:**
-- `400 Bad Request` (`VALIDATION_ERROR`): Missing or invalid user headers (`"Invalid user email header"` or `"Invalid user name header"`), or invalid page query parameter (`"Invalid page number"`).
-- `404 Not Found` (`NOT_FOUND`): User does not exist in the database (`"User not found"`).
+- **Auth:** Required (`token` cookie)
+- **Query parameters:** `page` (default `1`), `limit` (default `20`)
+- **Success:** `200 OK` (`[]` if no favorites on the requested page)
+  ```json
+  [
+    {
+      "tmdbId": 550,
+      "title": "Fight Club",
+      "overview": "A ticking-time-bomb insomniac...",
+      "posterPath": "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg"
+    }
+  ]
+  ```
+- **Error responses:**
+  - `400 VALIDATION_ERROR`: `"Invalid pagination query parameters"`
+  - `401 UNAUTHORIZED`: Missing, invalid, or expired `token` cookie.
 
 ---
 
 ### `GET /favorites/:tmdbId`
 
-Returns a single favorite movie by its TMDb ID for the identified user.
+Returns a single favorite movie by TMDb ID for the authenticated user.
 
-**Headers:**
-- `user-email`: string (required)
-- `user-name`: string (required)
-
-**Path parameter:**
-- `tmdbId`: Positive integer TMDb movie ID.
-
-**Request body:** None.
-
-**Success:** `200 OK`
-
-```json
-{
-  "tmdbId": 101,
-  "title": "Example Movie",
-  "overview": "An example movie overview.",
-  "posterPath": "/example.jpg"
-}
-```
-
-**Error responses:**
-- `400 Bad Request` (`VALIDATION_ERROR`): Missing or invalid user headers, or invalid `:tmdbId` path parameter (`"Invalid movie ID"`).
-- `404 Not Found` (`NOT_FOUND`):
-  - User not found in database (`"User not found"`).
-  - Favorite not found for this user (`"Movie with ID <tmdbId> not found in favorites"`).
+- **Auth:** Required (`token` cookie)
+- **Path parameter:** `tmdbId` (positive integer)
+- **Success:** `200 OK`
+  ```json
+  {
+    "tmdbId": 550,
+    "title": "Fight Club",
+    "overview": "A ticking-time-bomb insomniac...",
+    "posterPath": "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg"
+  }
+  ```
+- **Error responses:**
+  - `400 VALIDATION_ERROR`: `"Invalid movie ID"`
+  - `401 UNAUTHORIZED`: Missing, invalid, or expired `token` cookie.
+  - `404 NOT_FOUND`: `"Movie with ID <tmdbId> not found in favorites"`
 
 ---
 
-### `POST /favorites`
+### `POST /favorites/:tmdbId`
 
-Adds a movie to the identified user's favorites collection. If the user does not already exist in the database, the user record is automatically provisioned. If the movie does not already exist in the database, it is created; if it does exist, its title, overview, and poster path are updated.
+Adds a movie to the authenticated user's favorites. If the movie already exists in the local `movies` table, the cached metadata is used without calling TMDb. Otherwise, metadata is fetched from TMDb (`/movie/:tmdbId`), validated, upserted into `movies`, and linked in `favorites`.
 
-**Headers:**
-- `user-email`: string (required)
-- `user-name`: string (required)
-
-**Request body:** JSON object with movie fields.
-
-```json
-{
-  "tmdbId": 101,
-  "title": "Example Movie",
-  "poster_path": "/example.jpg",
-  "overview": "An example movie overview."
-}
-```
-
-**Success:** `201 Created`
-
-```json
-{
-  "tmdbId": 101,
-  "title": "Example Movie",
-  "poster_path": "/example.jpg",
-  "overview": "An example movie overview."
-}
-```
-
-**Error responses:**
-- `400 Bad Request` (`VALIDATION_ERROR`):
-  - Missing or invalid user headers (`"Invalid user email header"`, `"Invalid user name header"`).
-  - Invalid movie request body (`"Invalid movie request body"`).
-  - Malformed JSON payload (`"Invalid JSON payload"`).
-- `409 Conflict` (`DUPLICATE_ERROR`): The movie is already in this user's favorites (`"Favorite already exists"`).
-
----
-
-### `PUT /favorites/:tmdbId`
-
-Replaces/updates movie details for an existing user favorite. This operation checks that the movie is already in the user's favorites and verifies that the `tmdbId` in the request body matches `:tmdbId` in the URL, then updates the shared movie record in the database.
-
-**Headers:**
-- `user-email`: string (required)
-- `user-name`: string (required)
-
-**Path parameter:**
-- `tmdbId`: Positive integer TMDb movie ID.
-
-**Request body:** JSON object containing replacement movie details. The body `tmdbId` must match the URL `:tmdbId`.
-
-```json
-{
-  "tmdbId": 101,
-  "title": "Updated Example Movie",
-  "poster_path": null,
-  "overview": "The updated overview."
-}
-```
-
-**Success:** `200 OK`
-
-```json
-{
-  "tmdbId": 101,
-  "title": "Updated Example Movie",
-  "overview": "The updated overview.",
-  "posterPath": null
-}
-```
-
-**Error responses:**
-- `400 Bad Request` (`VALIDATION_ERROR`):
-  - Missing or invalid user headers (`"Invalid user email header"`, `"Invalid user name header"`).
-  - Invalid `:tmdbId` path parameter (`"Invalid movie ID"`).
-  - Invalid movie request body (`"Invalid movie request body"`).
-  - ID mismatch between URL and body (`"Movie ID in the body does not match the ID in the URL"`).
-  - Malformed JSON payload (`"Invalid JSON payload"`).
-- `404 Not Found` (`NOT_FOUND`):
-  - User not found in database (`"User not found"`).
-  - Movie not in user's favorites (`"Favorite with ID <tmdbId> not found"`).
+- **Auth:** Required (`token` cookie)
+- **Path parameter:** `tmdbId` (positive integer)
+- **Request body:** None
+- **Success:** `201 Created`
+  ```json
+  {
+    "tmdbId": 550,
+    "title": "Fight Club",
+    "poster_path": "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg",
+    "overview": "A ticking-time-bomb insomniac..."
+  }
+  ```
+- **Error responses:**
+  - `400 VALIDATION_ERROR`: `"Invalid movie ID"` or `"Invalid movie request body"` (if upstream TMDb data fails schema validation).
+  - `401 UNAUTHORIZED`: Missing/invalid/expired `token` cookie, or user no longer exists in DB (clears cookie).
+  - `404 NOT_FOUND`: `"Movie with ID <tmdbId> not found in TMDB"`
+  - `409 DUPLICATE_ERROR`: `"Favorite already exists"`
+  - `502 BAD_GATEWAY`: `"Failed to fetch movie data from TMDB: <reason>"`
 
 ---
 
 ### `DELETE /favorites/:tmdbId`
 
-Removes a movie from the identified user's favorites collection.
+Removes a movie from the authenticated user's favorites.
 
-**Headers:**
-- `user-email`: string (required)
-- `user-name`: string (required)
-
-**Path parameter:**
-- `tmdbId`: Positive integer TMDb movie ID.
-
-**Request body:** None.
-
-**Success:** `204 No Content` with an empty response body.
-
-**Error responses:**
-- `400 Bad Request` (`VALIDATION_ERROR`): Missing or invalid user headers, or invalid `:tmdbId` path parameter (`"Invalid movie ID"`).
-- `404 Not Found` (`NOT_FOUND`):
-  - User not found in database (`"User not found"`).
-  - Movie not found in user's favorites (`"Movie with ID <tmdbId> not found in user's favorites"`).
+- **Auth:** Required (`token` cookie)
+- **Path parameter:** `tmdbId` (positive integer)
+- **Success:** `204 No Content` (empty body)
+- **Error responses:**
+  - `400 VALIDATION_ERROR`: `"Invalid movie ID"`
+  - `401 UNAUTHORIZED`: Missing, invalid, or expired `token` cookie.
+  - `404 NOT_FOUND`: `"Movie with ID <tmdbId> not found in user's favorites"`
 
 ---
 
 ## Error contract
 
-Application errors return JSON conforming to this uniform structure:
+Application errors return JSON conforming to:
 
 ```json
 {
@@ -287,111 +285,20 @@ Application errors return JSON conforming to this uniform structure:
 ### Reachable error responses
 
 | HTTP Status | Code | Message | Cause |
-| ----------- | ---- | ------- | ----- |
-| `400` | `VALIDATION_ERROR` | `Invalid user email header` | `user-email` header missing, empty, or not a valid email format |
-| `400` | `VALIDATION_ERROR` | `Invalid user name header` | `user-name` header missing, empty, or length not between 2 and 50 characters |
-| `400` | `VALIDATION_ERROR` | `Invalid movie ID` | `:tmdbId` path parameter is not a positive integer |
-| `400` | `VALIDATION_ERROR` | `Invalid page number` | `?page` query parameter is not a positive integer |
-| `400` | `VALIDATION_ERROR` | `Invalid movie request body` | Body is not an object or fails validation for required fields (`tmdbId`, `title`, `overview`, `poster_path`) |
-| `400` | `VALIDATION_ERROR` | `Movie ID in the body does not match the ID in the URL` | In `PUT /favorites/:tmdbId`, `body.tmdbId` differs from `:tmdbId` in the URL |
-| `400` | `VALIDATION_ERROR` | `Invalid JSON payload` | Malformed or non-parseable JSON request body |
-| `404` | `NOT_FOUND` | `Route not found` | The requested HTTP method and path do not match any defined route |
-| `404` | `NOT_FOUND` | `User not found` | No matching user in the database for `GET`, `PUT`, or `DELETE` favorites requests |
-| `404` | `NOT_FOUND` | `Movie with ID <tmdbId> not found in favorites` | `GET /favorites/:tmdbId`: favorite does not exist for this user |
-| `404` | `NOT_FOUND` | `Favorite with ID <tmdbId> not found` | `PUT /favorites/:tmdbId`: favorite does not exist for this user |
-| `404` | `NOT_FOUND` | `Movie with ID <tmdbId> not found in user's favorites` | `DELETE /favorites/:tmdbId`: favorite does not exist for this user |
-| `409` | `DUPLICATE_ERROR` | `Favorite already exists` | `POST /favorites`: movie is already in this user's favorites |
-| `500` | `INTERNAL_SERVER_ERROR` | `Internal Server Error` | An unexpected unhandled exception occurred |
-
-### Error response examples
-
-**Invalid user email header:**
-```json
-{
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Invalid user email header"
-  }
-}
-```
-
-**Invalid movie ID:**
-```json
-{
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Invalid movie ID"
-  }
-}
-```
-
-**User not found:**
-```json
-{
-  "error": {
-    "code": "NOT_FOUND",
-    "message": "User not found"
-  }
-}
-```
-
-**Favorite movie not found:**
-```json
-{
-  "error": {
-    "code": "NOT_FOUND",
-    "message": "Movie with ID 999 not found in favorites"
-  }
-}
-```
-
-**Duplicate favorite:**
-```json
-{
-  "error": {
-    "code": "DUPLICATE_ERROR",
-    "message": "Favorite already exists"
-  }
-}
-```
-
-**ID mismatch:**
-```json
-{
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Movie ID in the body does not match the ID in the URL"
-  }
-}
-```
-
-**Malformed JSON:**
-```json
-{
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Invalid JSON payload"
-  }
-}
-```
-
-**Unmatched route:**
-```json
-{
-  "error": {
-    "code": "NOT_FOUND",
-    "message": "Route not found"
-  }
-}
-```
-
-> [!NOTE]
-> The `errors.ts` module also defines `UnauthorizedError` (`401 UNAUTHORIZED`) and `ForbiddenError` (`403 FORBIDDEN`), but currently no route throws these errors. Full authentication (e.g. passwords or tokens) is planned for a future release.
+| --- | --- | --- | --- |
+| `400` | `VALIDATION_ERROR` | Specific Zod issue message / `"Invalid movie ID"` / `"Invalid pagination query parameters"` / `"Invalid JSON payload"` | Request body, query, path parameter, or JSON syntax failed validation |
+| `401` | `UNAUTHORIZED` | `"Authentication required"` / `"Invalid or expired authentication token"` / `"Invalid email or password"` / `"User no longer exists"` | Missing/invalid/expired `token` cookie, wrong login credentials, or deleted user |
+| `404` | `NOT_FOUND` | `"Route not found"` / `"Movie with ID <tmdbId> not found in TMDB"` / `"Movie with ID <tmdbId> not found in favorites"` / `"Movie with ID <tmdbId> not found in user's favorites"` | Unmatched route or missing movie/favorite |
+| `409` | `DUPLICATE_ERROR` | `"Email is already registered"` / `"Favorite already exists"` | Email already exists on `/register` or favorite already exists for user |
+| `413` | — *(custom envelope)* | `{ "error": "Payload Too Large", "message": "Request body cannot exceed 10KB." }` | Request body exceeds `10KB` limit |
+| `429` | — *(rate-limit envelope)* | `{ "error": "Too many requests..." }` / `{ "error": "Too many authentication attempts..." }` | Exceeded `100` / 15m global or `15` / 15m auth rate limit |
+| `502` | `BAD_GATEWAY` | `"Failed to fetch movie data from TMDB: <reason>"` | Upstream TMDb API error or network failure |
+| `500` | `INTERNAL_SERVER_ERROR` | `"Internal Server Error"` | Unexpected unhandled exception |
 
 ---
 
 ## Runtime behavior
 
-- **Request logging:** All requests pass through `requestLogger` before JSON body parsing and routing. Upon response completion, the server logs an incrementing request ID, HTTP method, request path, HTTP status code, and execution duration in milliseconds to `stdout`.
-- **404 fallback handler:** Any request path or method not handled by defined routes falls through to an Express catch-all handler throwing a `NotFoundError("Route not found")`.
-- **Centralized error handling:** All errors (whether instances of `AppError`, JSON parsing syntax errors, or unhandled exceptions) are caught by the `errorHandler` middleware and rendered into the uniform JSON error response.
+- **Request logging:** Every request passes through `requestLogger`, logging an instance-local incrementing ID, method, path, status code, and duration in milliseconds to `stdout`.
+- **404 fallback:** Unmatched method/path combinations throw `NotFoundError("Route not found")`.
+- **Centralized error handling:** All thrown `AppError` instances, JSON syntax errors, `10KB` payload-too-large errors, and unexpected exceptions are formatted by `errorHandler`.
