@@ -23,6 +23,12 @@
     "@neon/env": "^2.1.3",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^26.6.6",
+    "@types/pg": "^8.23.1",
     "@vercel/functions": "^3.11.3",
     "argon2": "^0.45.2",
     "cookie-parser": "^1.4.7",
@@ -33,21 +39,21 @@
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.23.1",
+    "typescript": "^7.0.2",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/cookie-parser": "^1.4.10",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
-    "@types/jsonwebtoken": "^9.0.10",
-    "@types/node": "^26.6.6",
-    "@types/pg": "^8.23.1",
     "@types/supertest": "^7.2.1",
     "dotenv-cli": "^11.0.0",
     "prisma": "^7.10.1",
     "supertest": "^7.3.2",
     "tsx": "^4.23.15",
-    "typescript": "^7.0.2",
     "vitest": "^5.1.0"
+  },
+  "allowScripts": {
+    "argon2@0.45.2": true,
+    "esbuild@0.28.2": true,
+    "prisma@7.10.1": true,
+    "@prisma/engines@7.10.1": true
   }
 }
