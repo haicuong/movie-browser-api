@@ -1,14 +1,23 @@
 import * as zod from "zod";
 
-export const MovieIdSchema = zod.preprocess((value) => {
-  if (typeof value === "string") {
-    const parsed = parseInt(value, 10);
-    if (!isNaN(parsed)) {
-      return parsed;
+const PG_INT4_MAX = 2_147_483_647;
+
+export const MovieIdSchema = zod.preprocess(
+  (value) => {
+    if (typeof value === "string") {
+      if (!/^\d+$/.test(value)) {
+        return NaN;
+      }
+      return Number(value);
     }
-  }
-  return value;
-}, zod.number().int().positive("Movie ID must be a positive integer"));
+    return value;
+  },
+  zod
+    .number()
+    .int("Movie ID must be a positive integer")
+    .min(1, "Movie ID must be a positive integer")
+    .max(PG_INT4_MAX, "Movie ID must be a 32-bit positive integer"),
+);
 
 export const MovieSchema = zod.object({
   tmdbId: MovieIdSchema,

@@ -118,6 +118,107 @@ describe("POST /favorites/:tmdbId", () => {
     expect(response.status).toBe(401);
     expect(tmdbRequest).not.toHaveBeenCalled();
   });
+
+  test("returns 400 VALIDATION_ERROR for non-digit suffixes and INT4 overflow movie IDs", async () => {
+    const { agent } = await createAuthenticatedAgent();
+
+    for (const invalidId of ["550abc", "550.9", "550e2", "2147483648", "99999999999"]) {
+      const response = await agent.post(`/favorites/${invalidId}`);
+      expect(response.status).toBe(400);
+      expect(response.body.error).toEqual({
+        code: "VALIDATION_ERROR",
+        message: "Invalid movie ID",
+      });
+    }
+    expect(tmdbRequest).not.toHaveBeenCalled();
+  });
+
+  test("returns 502 BAD_GATEWAY when upstream TMDB returns HTTP 200 with non-JSON HTML body", async () => {
+    const { agent } = await createAuthenticatedAgent();
+    const { default: actualTmdbRequest } = await vi.importActual<
+      typeof import("../services/tmdb-proxy.js")
+    >("../services/tmdb-proxy.js");
+    vi.mocked(tmdbRequest).mockImplementationOnce(actualTmdbRequest);
+
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(
+        new Response("<html><body>Bad Gateway</body></html>", {
+          status: 200,
+          headers: { "content-type": "text/html" },
+        }),
+      );
+
+    try {
+      const response = await agent.post(`/favorites/${DUMMY_MOVIE.tmdbId}`);
+      expect(response.status).toBe(502);
+      expect(response.body.error?.code).toBe("BAD_GATEWAY");
+      expect(response.body.error?.message).toContain(
+        "Invalid JSON response from TMDB",
+      );
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  test("returns 502 BAD_GATEWAY when upstream TMDB request times out", async () => {
+    const { agent } = await createAuthenticatedAgent();
+    const { default: actualTmdbRequest } = await vi.importActual<
+      typeof import("../services/tmdb-proxy.js")
+    >("../services/tmdb-proxy.js");
+    vi.mocked(tmdbRequest).mockImplementationOnce(actualTmdbRequest);
+
+    const timeoutErr = new DOMException(
+      "The operation was aborted due to timeout",
+      "TimeoutError",
+    );
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValueOnce(timeoutErr);
+
+    try {
+      const response = await agent.post(`/favorites/${DUMMY_MOVIE.tmdbId}`);
+      expect(response.status).toBe(502);
+      expect(response.body.error?.code).toBe("BAD_GATEWAY");
+      expect(response.body.error?.message).toContain("TMDB request timed out");
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  test("coalesces concurrent cache-miss TMDB lookups for the same uncached movie", async () => {
+    const agents = await Promise.all(
+      Array.from({ length: 5 }, (_, i) =>
+        createAuthenticatedAgent(`coalesce-${i}@example.com`),
+      ),
+    );
+
+    vi.mocked(tmdbRequest).mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return {
+        success: true,
+        body: {
+          title: DUMMY_MOVIE.title,
+          poster_path: DUMMY_MOVIE.posterPath,
+          overview: DUMMY_MOVIE.overview,
+        },
+      };
+    });
+
+    const responses = await Promise.all(
+      agents.map(({ agent }) => agent.post(`/favorites/${DUMMY_MOVIE.tmdbId}`)),
+    );
+
+    for (const response of responses) {
+      expect(response.status).toBe(201);
+    }
+    expect(tmdbRequest).toHaveBeenCalledTimes(1);
+
+    const storedFavorites = await prisma.favorite.findMany({
+      where: { tmdbId: DUMMY_MOVIE.tmdbId },
+    });
+    expect(storedFavorites).toHaveLength(5);
+  });
 });
 
 describe("GET /favorites", () => {
@@ -154,6 +255,23 @@ describe("GET /favorites", () => {
   test("returns 401 Unauthorized without auth cookie", async () => {
     const response = await request(app).get("/favorites");
     expect(response.status).toBe(401);
+  });
+
+  test("returns 400 VALIDATION_ERROR for out-of-range pagination or array query params", async () => {
+    const { agent } = await createAuthenticatedAgent();
+
+    for (const query of [
+      "?limit=101",
+      "?limit=1000000",
+      "?page=10001",
+      "?page[]=1",
+      "?page=1&page=2",
+      "?limit=1.5",
+    ]) {
+      const response = await agent.get(`/favorites${query}`);
+      expect(response.status).toBe(400);
+      expect(response.body.error?.code).toBe("VALIDATION_ERROR");
+    }
   });
 });
 
@@ -219,5 +337,27 @@ describe("GET /favorites/:tmdbId", () => {
   test("returns 401 Unauthorized without auth cookie", async () => {
     const response = await request(app).get(`/favorites/${DUMMY_MOVIE.tmdbId}`);
     expect(response.status).toBe(401);
+  });
+
+  test("returns 400 VALIDATION_ERROR for suffix-truncated ('550abc') and INT4-overflow ('2147483648') movie IDs", async () => {
+    const { agent, userId } = await createAuthenticatedAgent();
+    const movie = await seedDummyMovie({ tmdbId: 550 });
+    await prisma.favorite.create({
+      data: { userId, tmdbId: movie.tmdbId },
+    });
+
+    const suffixRes = await agent.get("/favorites/550abc");
+    expect(suffixRes.status).toBe(400);
+    expect(suffixRes.body.error).toEqual({
+      code: "VALIDATION_ERROR",
+      message: "Invalid movie ID",
+    });
+
+    const overflowRes = await agent.get("/favorites/2147483648");
+    expect(overflowRes.status).toBe(400);
+    expect(overflowRes.body.error).toEqual({
+      code: "VALIDATION_ERROR",
+      message: "Invalid movie ID",
+    });
   });
 });

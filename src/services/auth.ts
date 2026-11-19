@@ -5,6 +5,13 @@ import { AUTH_COOKIE_NAME, getAuthCookieOptions } from "../config/cookies.js";
 import env from "../config/env.js";
 import { UnauthorizedError } from "../errors/errors.js";
 
+const JWT_ALGORITHM: jwt.Algorithm = "HS256";
+
+// Precomputed Argon2id digest matching default hash() params (m=65536, t=3, p=4)
+// so unknown-email login attempts perform equivalent work without cold-start overhead.
+export const DUMMY_PASSWORD_HASH =
+  "$argon2id$v=19$m=65536,t=3,p=4$Z0hLwj2lk+MRR+ZE5FhNfw$R6NSiE9JVTOLrd7vA8lQjOeraY1bAbt2RAbzeicl0yI";
+
 export async function hashPassword(password: string): Promise<string> {
   return hash(password, { type: argon2id });
 }
@@ -18,6 +25,7 @@ export async function verifyPassword(
 
 export function signAuthToken(userId: number): string {
   return jwt.sign({ userId }, env.jwtSecret, {
+    algorithm: JWT_ALGORITHM,
     expiresIn: env.jwtExpiresIn as jwt.SignOptions["expiresIn"],
   });
 }
@@ -25,7 +33,9 @@ export function signAuthToken(userId: number): string {
 export function verifyAuthToken(token: string): { userId: number } {
   let decoded: string | jwt.JwtPayload;
   try {
-    decoded = jwt.verify(token, env.jwtSecret);
+    decoded = jwt.verify(token, env.jwtSecret, {
+      algorithms: [JWT_ALGORITHM],
+    });
   } catch {
     throw new UnauthorizedError("Invalid or expired authentication token");
   }

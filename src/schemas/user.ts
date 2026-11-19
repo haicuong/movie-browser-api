@@ -1,17 +1,35 @@
 import * as zod from "zod";
 
-export const PaginationQuerySchema = zod.object({
-  page: zod.preprocess(
-    (val) => (val === undefined || val === null || val === "" ? 1 : val),
-    zod.coerce
-      .number()
-      .int()
-      .positive("Page number must be a positive integer"),
-  ),
-  limit: zod.preprocess(
-    (val) => (val === undefined || val === null || val === "" ? 20 : val),
-    zod.coerce.number().int().positive("Limit must be a positive integer"),
-  ),
+const MAX_PAGE = 10_000;
+const MAX_LIMIT = 100;
+
+function createPaginationIntSchema(
+  defaultValue: number,
+  max: number,
+  label: string,
+) {
+  return zod.preprocess(
+    (val) => {
+      if (val === undefined || val === null || val === "") {
+        return defaultValue;
+      } else if (typeof val === "number") {
+        return val;
+      } else if (typeof val === "string" && /^\d+$/.test(val)) {
+        return Number(val);
+      }
+      return NaN;
+    },
+    zod
+      .number(`${label} must be a positive integer`)
+      .int(`${label} must be a positive integer`)
+      .min(1, `${label} must be a positive integer`)
+      .max(max, `${label} must be at most ${max}`),
+  );
+}
+
+export const PaginationQuerySchema = zod.strictObject({
+  page: createPaginationIntSchema(1, MAX_PAGE, "Page number"),
+  limit: createPaginationIntSchema(20, MAX_LIMIT, "Limit"),
 });
 
 export const NormalizedEmailSchema = zod

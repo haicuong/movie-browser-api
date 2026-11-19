@@ -1,6 +1,7 @@
 import env from "../config/env.js";
 
 const ALLOWED_PATH = /^\/(movie|trending|search)(\/[A-Za-z0-9_-]+)*$/;
+const TMDB_TIMEOUT_MS = 5_000;
 
 interface tmdbRequestSuccessResponse<T = any> {
   success: true;
@@ -37,16 +38,19 @@ export default async function tmdbRequest<T = any>(
     const upstream = await fetch(
       `https://api.themoviedb.org/3${path}${queryString}`,
       {
+        signal: AbortSignal.timeout(TMDB_TIMEOUT_MS),
         headers: {
           Authorization: `Bearer ${token}`,
           accept: "application/json",
         },
       },
     );
+
     const body = await upstream.json().catch((error) => {
       console.error("Failed to parse JSON response from TMDB:", error);
       return null;
     });
+
     if (!upstream.ok) {
       const errorMessage =
         (body as any)?.status_message ||
@@ -58,11 +62,31 @@ export default async function tmdbRequest<T = any>(
         statusCode: upstream.status,
       };
     }
+
+    if (body === null || typeof body !== "object" || Array.isArray(body)) {
+      return {
+        success: false,
+        error: "Invalid JSON response from TMDB",
+        statusCode: 502,
+      };
+    }
+
     return { success: true, body: body as T };
   } catch (err: unknown) {
     console.error("TMDB proxy fetch error:", err);
+
+    if (err instanceof Error && err.name === "TimeoutError") {
+      return {
+        success: false,
+        error: "TMDB request timed out",
+        statusCode: 504,
+      };
+    }
+
     const message =
-      err instanceof Error ? err.message : "Upstream request failed in catch block";
+      err instanceof Error
+        ? err.message
+        : "Upstream request failed in catch block";
     return { success: false, error: message };
   }
 }

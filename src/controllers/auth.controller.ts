@@ -5,6 +5,7 @@ import { getAuthenticatedUserId } from "../middleware/auth.js";
 import { Prisma } from "../prisma/generated/client.js";
 import { prisma } from "../prisma/prisma.js";
 import {
+  DUMMY_PASSWORD_HASH,
   hashPassword,
   issueAuthCookie,
   verifyPassword,
@@ -54,7 +55,12 @@ export async function login(req: Request, res: Response) {
     },
   });
 
-  if (!user || !(await verifyPassword(user.passwordHash, password))) {
+  const passwordValid = await verifyPassword(
+    user?.passwordHash ?? DUMMY_PASSWORD_HASH,
+    password,
+  );
+
+  if (!user || !passwordValid) {
     throw new UnauthorizedError("Invalid email or password");
   }
 

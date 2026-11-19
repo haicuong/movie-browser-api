@@ -16,22 +16,15 @@ import { Movie } from "../schemas/movie.js";
 import tmdbRequest from "../services/tmdb-proxy.js";
 import { validateMovie, validateStringMovieId } from "../validation/movie.js";
 
-export default async function createFavorite(
-  req: Request<{ tmdbId: string }>,
-  res: Response,
-) {
-  const userId = getAuthenticatedUserId(req);
+const inFlightMovieLookups = new Map<number, Promise<Movie>>();
 
-  const { tmdbId } = req.params;
-  const parsedId = validateStringMovieId(tmdbId);
+async function fetchAndCacheMovie(parsedId: number): Promise<Movie> {
+  const existingLookup = inFlightMovieLookups.get(parsedId);
+  if (existingLookup) {
+    return existingLookup;
+  }
 
-  let movie: Movie;
-
-  const dbMovie = await prisma.movie.findUnique({
-    where: { tmdbId: parsedId },
-  });
-
-  if (!dbMovie) {
+  const lookupPromise = (async () => {
     const tmdbResponse = await tmdbRequest(`/movie/${parsedId}`);
     if (!tmdbResponse.success) {
       if (tmdbResponse.statusCode === 404) {
@@ -44,7 +37,7 @@ export default async function createFavorite(
       );
     }
 
-    movie = {
+    const movie: Movie = {
       tmdbId: parsedId,
       title: tmdbResponse.body.title,
       poster_path: tmdbResponse.body.poster_path ?? null,
@@ -67,6 +60,38 @@ export default async function createFavorite(
         overview: validatedMovie.overview,
       },
     });
+
+    return validatedMovie;
+  })();
+
+  inFlightMovieLookups.set(parsedId, lookupPromise);
+
+  try {
+    return await lookupPromise;
+  } finally {
+    if (inFlightMovieLookups.get(parsedId) === lookupPromise) {
+      inFlightMovieLookups.delete(parsedId);
+    }
+  }
+}
+
+export default async function createFavorite(
+  req: Request<{ tmdbId: string }>,
+  res: Response,
+) {
+  const userId = getAuthenticatedUserId(req);
+
+  const { tmdbId } = req.params;
+  const parsedId = validateStringMovieId(tmdbId);
+
+  let movie: Movie;
+
+  const dbMovie = await prisma.movie.findUnique({
+    where: { tmdbId: parsedId },
+  });
+
+  if (!dbMovie) {
+    movie = await fetchAndCacheMovie(parsedId);
   } else {
     movie = {
       tmdbId: dbMovie.tmdbId,

@@ -80,10 +80,10 @@ Returned by `POST /register`, `POST /login`, and `GET /me` (never includes `pass
 
 ### Path & query parameters
 
-- `:tmdbId`: Positive integer (`> 0`). Invalid values return `400 VALIDATION_ERROR` (`"Invalid movie ID"`).
-- `?page` (optional on `GET /favorites`): Positive integer, defaults to `1` when omitted or empty.
-- `?limit` (optional on `GET /favorites`): Positive integer, defaults to `20` when omitted or empty.
-- Invalid `?page` or `?limit` returns `400 VALIDATION_ERROR` (`"Invalid pagination query parameters"`).
+- `:tmdbId`: Strict positive 32-bit integer (`1` to `2147483647`, digits only). Non-numeric suffixes, decimals, scientific notation, or values outside the 32-bit integer range return `400 VALIDATION_ERROR` (`"Invalid movie ID"`).
+- `?page` (optional on `GET /favorites`): Scalar positive integer (`1` to `10000`, digits only), defaults to `1` when omitted or empty.
+- `?limit` (optional on `GET /favorites`): Scalar positive integer (`1` to `100`, digits only), defaults to `20` when omitted or empty.
+- Invalid `?page` or `?limit` (including array parameters such as `?page[]=1` or values above the max cap) returns `400 VALIDATION_ERROR`.
 
 ---
 
@@ -190,7 +190,7 @@ Returns the currently authenticated user's profile from the database.
 Returns a paginated list of movies favorited by the authenticated user, ordered by `createdAt` descending.
 
 - **Auth:** Required (`token` cookie)
-- **Query parameters:** `page` (default `1`), `limit` (default `20`)
+- **Query parameters:** `page` (default `1`, max `10000`), `limit` (default `20`, max `100`)
 - **Success:** `200 OK` (`[]` if no favorites on the requested page)
   ```json
   [
@@ -251,7 +251,7 @@ Adds a movie to the authenticated user's favorites. If the movie already exists 
   - `401 UNAUTHORIZED`: Missing/invalid/expired `token` cookie, or user no longer exists in DB (clears cookie).
   - `404 NOT_FOUND`: `"Movie with ID <tmdbId> not found in TMDB"`
   - `409 DUPLICATE_ERROR`: `"Favorite already exists"`
-  - `502 BAD_GATEWAY`: `"Failed to fetch movie data from TMDB: <reason>"`
+  - `502 BAD_GATEWAY`: `"Failed to fetch movie data from TMDB: <reason>"` (upstream HTTP error, non-JSON/HTML response, network failure, or `5s` timeout).
 
 ---
 
