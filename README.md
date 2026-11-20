@@ -13,15 +13,15 @@ Movie Browser API is an Express and TypeScript REST API for user authentication 
 ## Features
 
 - `GET /health` service health check
-- **Cookie-based JWT authentication** (`email` + `password`, Argon2id password hashing, `HttpOnly` `token` cookie):
+- **Cookie-based JWT authentication** (`email` + `password`, Argon2id password hashing with constant-time dummy verification on unknown emails, `HS256`-pinned `HttpOnly` `token` cookie carrying `{ userId, tokenVersion }`):
   - `POST /register` — Create account, hash password with Argon2id, and immediately set auth cookie
   - `POST /login` — Verify credentials and set auth cookie
-  - `POST /logout` — Clear auth cookie
+  - `POST /logout` — Increment `tokenVersion` server-side when an active cookie is provided (immediately revoking prior JWTs) and clear auth cookie
   - `GET /me` — Return currently authenticated user info (`id`, `email`, `createdAt`)
-- **User-scoped Favorites CRUD** (all protected by `requireAuth`):
-  - `GET /favorites` — List user favorites with pagination (`?page=`, `?limit=`, defaults `1` and `20`, ordered by `createdAt` descending)
-  - `GET /favorites/:tmdbId` — Retrieve one favorite movie for the authenticated user
-  - `POST /favorites/:tmdbId` — Add a movie by TMDb ID (uses cached `movies` row if present; otherwise fetches from TMDb and caches it)
+- **User-scoped Favorites CRUD** (all protected by `requireAuth` validating active `tokenVersion`):
+  - `GET /favorites` — List user favorites with bounded pagination (`?page=` `1–10000`, `?limit=` `1–100`, defaults `1` and `20`, single-query SQL `INNER JOIN` backed by composite index `(user_id, created_at DESC)`)
+  - `GET /favorites/:tmdbId` — Retrieve one favorite movie for the authenticated user (single-query SQL `INNER JOIN`)
+  - `POST /favorites/:tmdbId` — Add a movie by strict 32-bit positive integer TMDb ID (uses cached `movies` row if present; otherwise fetches from TMDb with a `5s` `AbortSignal.timeout` and in-flight coalescing per instance, validates JSON/schema, and caches it)
   - `DELETE /favorites/:tmdbId` — Remove a movie from the authenticated user's favorites
 - **CORS & Cookie policy:** Configurable origin allowlist (`CORS_ORIGIN`) with `credentials: true` and environment-aware cookie flags (`SameSite=Lax` + `Secure` in production HTTPS; `SameSite=Lax` + `Secure=false` on local HTTP; optional `COOKIE_SAME_SITE=none` for cross-site preview environments)
 - **Rate limiting:** Global `100` req / `15` min per IP (`appLimiter`) and stricter `15` req / `15` min per IP on `/register` and `/login` (`authLimiter`)
@@ -219,6 +219,26 @@ For complete request/response schemas and error codes, see [`API_CONTRACT.md`](.
 
 ## Architecture notes & serverless limitations
 
-- **In-memory rate limiting:** `appLimiter` (`100` / 15m) and `authLimiter` (`15` / 15m on `/register` and `/login`) use `express-rate-limit`'s default `MemoryStore`. In Vercel serverless functions, counters are per warm instance and reset on cold starts/redeploys rather than sharing state globally across concurrent instances.
+- **In-memory rate limiting (intentional free-tier trade-off):** `appLimiter` (`100` / 15m) and `authLimiter` (`15` / 15m on `/register` and `/login`) use `express-rate-limit`'s default `MemoryStore`. In Vercel serverless functions, counters are isolated per warm instance and reset on cold starts/redeploys—empirically observed during a live 10-request parallel burst where newly spawned cold instances started with fresh `r=99` counters. Keeping `MemoryStore` avoids external paid/third-party Redis dependencies on free plans; adding a shared store (such as Upstash Redis) is the documented upgrade path for strict global rate limiting.
 - **In-memory request IDs:** `requestIdCounter` in [`src/middleware/request-logger.ts`](./src/middleware/request-logger.ts) resets to `0` on each serverless cold start and is not globally unique across instances.
-- **Shared movie metadata cache:** `POST /favorites/:tmdbId` caches TMDb movie records globally in `movies` by `tmdbId` across all users; subsequent favorites for an already-cached `tmdbId` reuse the database record without calling TMDb again.
+- **Shared movie metadata cache & in-flight coalescing:** `POST /favorites/:tmdbId` caches TMDb movie records globally in `movies` by `tmdbId` across all users, coalesces concurrent cache misses per warm instance via an in-flight `Map`, and bounds outbound TMDb `fetch` calls with a `5s` timeout (`AbortSignal.timeout(5000)`).
+- **Database connection pooling:** [`src/prisma/prisma.ts`](./src/prisma/prisma.ts) configures `pg.Pool` with `max: 10` and `attachDatabasePool(pool)` routed through Neon's PgBouncer `-pooler` endpoint.
+
+## Security & load verification (Before vs. After)
+
+The API was audited against OWASP API Security Top 10 (2023), fault-injected upstream failures, Neon `EXPLAIN (ANALYZE, BUFFERS, PREFETCH, FILECACHE)` plans, and a `10 → 25 → 50 → 100` concurrent virtual user (VU) load ramp on an isolated `0.25–2 CU` Neon Free branch (`aws-ap-southeast-1`, `-pooler`) plus bounded live checks against `https://movie-browser.api.haicuong.me`.
+
+| Check / Benchmark | Before (`edd0ded`) | After (`c435f2e`) |
+| :--- | :--- | :--- |
+| Automated Vitest suite | 24 tests passing | **30 tests passing** (`tsc --noEmit` & `build` clean) |
+| `:tmdbId` suffix & `INT4` overflow (`550abc`, `2147483648`) | `200` truncation / `500` DB crash | **`400 VALIDATION_ERROR`** |
+| Pagination bounds & array params (`?limit=1000000`, `?page[]=1`) | `200 OK` (unbounded) | **`400 VALIDATION_ERROR`** (`limit <= 100`, `.strict()`) |
+| Non-JSON HTTP `200` from TMDb | `500 INTERNAL_SERVER_ERROR` | **`502 BAD_GATEWAY`** |
+| Hung TMDb upstream & 20-way cache stampede | `4.66s` hang / `20` TMDb calls | Aborts at **`5.08s`** (`502`) / **`1`** coalesced call (`-95%`) |
+| `POST /login` timing side-channel (`30+30` Welch t-test) | `133.2ms` vs `37.1ms` (`3.59×`, `t = 25.01`) | **`93.5ms` vs `98.3ms`** (`0.95×`, `t = -0.86`) |
+| Deleted-user & post-logout JWT replay | `200 []` / `404` / `7d` replay | **`401 UNAUTHORIZED` + cookie clear** via `tokenVersion` |
+| Neon `EXPLAIN` (`GET /favorites`, 1,545-row user) | `top-N heapsort` (`1.138ms`) | **`Index Scan`** (`favorites_user_id_created_at_idx`, **`0.095ms`**, **12.0× faster**) |
+| Live warm `GET /favorites` (`movie-browser.api.haicuong.me`) | `109.64ms` p50 (no auth DB check) | **`105.06ms` p50** (with `tokenVersion` check + SQL `JOIN`) |
+| `10 → 25 → 50 → 100` VU isolated Neon branch ramp | `62.1 / 131.3 / 133.5 / 150.1 req/s` (`0%` err) | **`62.8 / 146.2 / 140.2 / 114.2 req/s`** (`0%` err, `10/901` DB sessions) |
+
+*(Note: At `10–50` VUs, the single-query SQL `INNER JOIN` + composite index improved throughput by up to `+11.3%` and lowered `p50` by `16–17%`. At `100`-VU single-process saturation, adding the `tokenVersion` PK check on write routes shifted peak single-process RPS from `150.1` to `114.2 req/s` with `0%` errors—an explicit, measured trade-off for immediate server-side session revocation.)*

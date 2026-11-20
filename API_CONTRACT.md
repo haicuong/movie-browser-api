@@ -32,7 +32,7 @@ Authentication uses **JWTs stored in an `HttpOnly` cookie** named `token` (signe
   - Global limit: `{ "error": "Too many requests, please try again later." }`
   - Auth limit: `{ "error": "Too many authentication attempts, please try again later." }`
 
-*(In serverless deployments, `express-rate-limit` uses an in-memory store, so counters are per warm function instance.)*
+*(Intentional free-tier architectural limitation: in serverless deployments such as Vercel Hobby, `express-rate-limit` uses an in-memory `MemoryStore`, so counters are per warm function instance and newly spawned cold instances start with fresh counters rather than sharing state globally across instances. Distributed enforcement requires pairing with an external store such as Upstash Redis.)*
 
 ---
 
