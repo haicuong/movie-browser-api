@@ -23,14 +23,17 @@ export async function verifyPassword(
   return verify(passwordHash, password);
 }
 
-export function signAuthToken(userId: number): string {
-  return jwt.sign({ userId }, env.jwtSecret, {
+export function signAuthToken(userId: number, tokenVersion: number): string {
+  return jwt.sign({ userId, tokenVersion }, env.jwtSecret, {
     algorithm: JWT_ALGORITHM,
     expiresIn: env.jwtExpiresIn as jwt.SignOptions["expiresIn"],
   });
 }
 
-export function verifyAuthToken(token: string): { userId: number } {
+export function verifyAuthToken(token: string): {
+  userId: number;
+  tokenVersion: number;
+} {
   let decoded: string | jwt.JwtPayload;
   try {
     decoded = jwt.verify(token, env.jwtSecret, {
@@ -45,15 +48,25 @@ export function verifyAuthToken(token: string): { userId: number } {
     decoded === null ||
     typeof decoded.userId !== "number" ||
     !Number.isInteger(decoded.userId) ||
-    decoded.userId <= 0
+    decoded.userId <= 0 ||
+    typeof decoded.tokenVersion !== "number" ||
+    !Number.isInteger(decoded.tokenVersion) ||
+    decoded.tokenVersion <= 0
   ) {
     throw new UnauthorizedError("Invalid authentication token");
   }
 
-  return { userId: decoded.userId };
+  return {
+    userId: decoded.userId,
+    tokenVersion: decoded.tokenVersion,
+  };
 }
 
-export function issueAuthCookie(res: Response, userId: number): void {
-  const token = signAuthToken(userId);
+export function issueAuthCookie(
+  res: Response,
+  userId: number,
+  tokenVersion: number,
+): void {
+  const token = signAuthToken(userId, tokenVersion);
   res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
 }

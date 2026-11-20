@@ -8,7 +8,7 @@ The service is an Express and TypeScript REST API backed by PostgreSQL (Neon) an
 
 ## Authentication & cookies
 
-Authentication uses **JWTs stored in an `HttpOnly` cookie** named `token` (signed with `JWT_SECRET`, default expiration `7d`). The JWT payload stores only `{ userId }`.
+Authentication uses **JWTs stored in an `HttpOnly` cookie** named `token` (signed with `JWT_SECRET` using `HS256`, default expiration `7d`). The JWT payload stores `{ userId, tokenVersion }`.
 
 ### Cookie attributes
 
@@ -20,7 +20,7 @@ Authentication uses **JWTs stored in an `HttpOnly` cookie** named `token` (signe
 - **Browser clients (CORS):** CORS is configured with `credentials: true` for origins listed in `CORS_ORIGIN` (no trailing slash). Browser requests from an allowed origin (such as `https://movie-browser.haicuong.me` talking to a `*.haicuong.me` API subdomain) must include `credentials: "include"` (`withCredentials: true` in Axios) so cookies are stored and sent automatically.
 - **Allowed CORS methods & headers:** `GET`, `POST`, `DELETE`, `OPTIONS`; allowed request header `Content-Type`.
 - **Cross-site previews:** If a browser frontend and API are deployed on separate sites (such as two different `*.vercel.app` origins), set `COOKIE_SAME_SITE=none` in that environment so `SameSite=None; Secure` cookies are sent cross-site.
-- **Protected routes:** `GET /me`, `GET /favorites`, `GET /favorites/:tmdbId`, `POST /favorites/:tmdbId`, and `DELETE /favorites/:tmdbId` require a valid `token` cookie verified by `requireAuth`. Missing, malformed, or expired tokens return `401 UNAUTHORIZED`.
+- **Protected routes:** `GET /me`, `GET /favorites`, `GET /favorites/:tmdbId`, `POST /favorites/:tmdbId`, and `DELETE /favorites/:tmdbId` require a valid `token` cookie verified by `requireAuth` against the user's current `tokenVersion` in PostgreSQL. Missing, malformed, expired, or revoked tokens—or deleted users—return `401 UNAUTHORIZED` (and clear the cookie when revoked or deleted).
 
 ---
 
@@ -159,9 +159,9 @@ Verifies email and password against the stored Argon2id hash, sets the `token` c
 
 ### `POST /logout`
 
-Clears the `token` cookie using matching cookie attributes.
+Increments the authenticated user's `tokenVersion` in PostgreSQL when a valid active `token` cookie is provided (immediately revoking previously issued JWTs server-side) and clears the `token` cookie using matching cookie attributes. Missing, invalid, or already-revoked cookies are ignored so logout remains idempotent.
 
-- **Auth:** None
+- **Auth:** Optional (`token` cookie revokes server-side session when valid and active)
 - **Request body:** None
 - **Success:** `204 No Content` (empty body, clears `token` cookie)
 

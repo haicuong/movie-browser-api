@@ -8,6 +8,7 @@ import {
   DUMMY_PASSWORD_HASH,
   hashPassword,
   issueAuthCookie,
+  verifyAuthToken,
   verifyPassword,
 } from "../services/auth.js";
 import {
@@ -28,11 +29,18 @@ export async function register(req: Request, res: Response) {
   try {
     const user = await prisma.user.create({
       data: { email, passwordHash },
-      select: PUBLIC_USER_SELECT,
+      select: {
+        ...PUBLIC_USER_SELECT,
+        tokenVersion: true,
+      },
     });
 
-    issueAuthCookie(res, user.id);
-    return res.status(201).json(user);
+    issueAuthCookie(res, user.id, user.tokenVersion);
+    return res.status(201).json({
+      id: user.id,
+      email: user.email,
+      createdAt: user.createdAt,
+    });
   } catch (error) {
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -52,6 +60,7 @@ export async function login(req: Request, res: Response) {
     select: {
       ...PUBLIC_USER_SELECT,
       passwordHash: true,
+      tokenVersion: true,
     },
   });
 
@@ -64,7 +73,7 @@ export async function login(req: Request, res: Response) {
     throw new UnauthorizedError("Invalid email or password");
   }
 
-  issueAuthCookie(res, user.id);
+  issueAuthCookie(res, user.id, user.tokenVersion);
   return res.status(200).json({
     id: user.id,
     email: user.email,
@@ -72,12 +81,29 @@ export async function login(req: Request, res: Response) {
   });
 }
 
-export function logout(_req: Request, res: Response) {
+export async function logout(req: Request, res: Response) {
+  const token = req.cookies?.[AUTH_COOKIE_NAME];
+  if (typeof token === "string" && token.length > 0) {
+    try {
+      const { userId, tokenVersion } = verifyAuthToken(token);
+      await prisma.user.updateMany({
+        where: { id: userId, tokenVersion },
+        data: { tokenVersion: { increment: 1 } },
+      });
+    } catch {
+      // Ignore invalid or expired tokens so logout stays idempotent.
+    }
+  }
+
   res.clearCookie(AUTH_COOKIE_NAME, getAuthCookieClearOptions());
   return res.sendStatus(204);
 }
 
 export async function getMe(req: Request, res: Response) {
+  if (req.user) {
+    return res.status(200).json(req.user);
+  }
+
   const userId = getAuthenticatedUserId(req);
 
   const user = await prisma.user.findUnique({

@@ -11,6 +11,7 @@ model User {
   id           Int        @id @default(autoincrement())
   email        String     @unique
   passwordHash String     @map("password_hash")
+  tokenVersion Int        @default(1) @map("token_version")
   createdAt    DateTime   @default(now()) @map("created_at")
   favorites    Favorite[]
 
@@ -26,6 +27,7 @@ model Favorite {
   movie Movie @relation(fields: [tmdbId], references: [tmdbId], onDelete: Restrict, onUpdate: Restrict)
 
   @@id([userId, tmdbId])
+  @@index([userId, createdAt(sort: Desc)])
   @@map("favorites")
 }
 

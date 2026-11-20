@@ -12,7 +12,11 @@ loadDotenv({ path: [".env.local", ".env"], quiet: true });
 const neonPolicy = defineConfig({ auth: false });
 const { postgres } = parseEnv(neonPolicy, ["DATABASE_URL"]);
 
-const pool = new Pool({ connectionString: postgres.databaseUrl });
+// Keep explicit pool ceiling aligned with Vercel Fluid Compute + Neon PgBouncer (-pooler).
+const pool = new Pool({
+  connectionString: postgres.databaseUrl,
+  max: 10,
+});
 attachDatabasePool(pool);
 
 const adapter = new PrismaPg(pool);
