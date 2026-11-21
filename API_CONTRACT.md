@@ -12,10 +12,10 @@ Authentication uses **JWTs stored in an `HttpOnly` cookie** named `token` (signe
 
 ### Cookie attributes
 
-| Environment | `httpOnly` | `secure` | `sameSite` | `path` | `maxAge` |
-| --- | --- | --- | --- | --- | --- |
-| Development / Test (`NODE_ENV !== "production"`) | `true` | `false` | `lax` | `/` | 7 days |
-| Production (`NODE_ENV === "production"`) | `true` | `true` | `COOKIE_SAME_SITE` (default `lax`) | `/` | 7 days |
+| Environment                                      | `httpOnly` | `secure` | `sameSite`                         | `path` | `maxAge` |
+| ------------------------------------------------ | ---------- | -------- | ---------------------------------- | ------ | -------- |
+| Development / Test (`NODE_ENV !== "production"`) | `true`     | `false`  | `lax`                              | `/`    | 7 days   |
+| Production (`NODE_ENV === "production"`)         | `true`     | `true`   | `COOKIE_SAME_SITE` (default `lax`) | `/`    | 7 days   |
 
 - **Browser clients (CORS):** CORS is configured with `credentials: true` for origins listed in `CORS_ORIGIN` (no trailing slash). Browser requests from an allowed origin (such as `https://movie-browser.haicuong.me` talking to a `*.haicuong.me` API subdomain) must include `credentials: "include"` (`withCredentials: true` in Axios) so cookies are stored and sent automatically.
 - **Allowed CORS methods & headers:** `GET`, `POST`, `DELETE`, `OPTIONS`; allowed request header `Content-Type`.
@@ -32,7 +32,7 @@ Authentication uses **JWTs stored in an `HttpOnly` cookie** named `token` (signe
   - Global limit: `{ "error": "Too many requests, please try again later." }`
   - Auth limit: `{ "error": "Too many authentication attempts, please try again later." }`
 
-*(Intentional free-tier architectural limitation: in serverless deployments such as Vercel Hobby, `express-rate-limit` uses an in-memory `MemoryStore`, so counters are per warm function instance and newly spawned cold instances start with fresh counters rather than sharing state globally across instances. Distributed enforcement requires pairing with an external store such as Upstash Redis.)*
+_(Intentional free-tier architectural limitation: in serverless deployments such as Vercel Hobby, `express-rate-limit` uses an in-memory `MemoryStore`, so counters are per warm function instance and newly spawned cold instances start with fresh counters rather than sharing state globally across instances. Distributed enforcement requires pairing with an external store such as Upstash Redis.)_
 
 ---
 
@@ -59,16 +59,7 @@ Returned by `POST /register`, `POST /login`, and `GET /me` (never includes `pass
 
 ### Movie representation
 
-- **`POST /favorites/:tmdbId`** returns `201 Created` using `poster_path`:
-  ```json
-  {
-    "tmdbId": 550,
-    "title": "Fight Club",
-    "poster_path": "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg",
-    "overview": "A ticking-time-bomb insomniac..."
-  }
-  ```
-- **`GET /favorites` and `GET /favorites/:tmdbId`** return Prisma `Movie` records using `posterPath`:
+- **`GET /favorites`, `GET /favorites/:tmdbId` and `POST /favorites/:tmdbId`** return `Movie`:
   ```json
   {
     "tmdbId": 550,
@@ -242,8 +233,8 @@ Adds a movie to the authenticated user's favorites. If the movie already exists 
   {
     "tmdbId": 550,
     "title": "Fight Club",
-    "poster_path": "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg",
-    "overview": "A ticking-time-bomb insomniac..."
+    "overview": "A ticking-time-bomb insomniac...",
+    "posterPath": "/pB8BM7pdSp6B6Ih7QZ4DrQ3PmJK.jpg"
   }
   ```
 - **Error responses:**
@@ -284,16 +275,16 @@ Application errors return JSON conforming to:
 
 ### Reachable error responses
 
-| HTTP Status | Code | Message | Cause |
-| --- | --- | --- | --- |
-| `400` | `VALIDATION_ERROR` | Specific Zod issue message / `"Invalid movie ID"` / `"Invalid pagination query parameters"` / `"Invalid JSON payload"` | Request body, query, path parameter, or JSON syntax failed validation |
-| `401` | `UNAUTHORIZED` | `"Authentication required"` / `"Invalid or expired authentication token"` / `"Invalid email or password"` / `"User no longer exists"` | Missing/invalid/expired `token` cookie, wrong login credentials, or deleted user |
-| `404` | `NOT_FOUND` | `"Route not found"` / `"Movie with ID <tmdbId> not found in TMDB"` / `"Movie with ID <tmdbId> not found in favorites"` / `"Movie with ID <tmdbId> not found in user's favorites"` | Unmatched route or missing movie/favorite |
-| `409` | `DUPLICATE_ERROR` | `"Email is already registered"` / `"Favorite already exists"` | Email already exists on `/register` or favorite already exists for user |
-| `413` | — *(custom envelope)* | `{ "error": "Payload Too Large", "message": "Request body cannot exceed 10KB." }` | Request body exceeds `10KB` limit |
-| `429` | — *(rate-limit envelope)* | `{ "error": "Too many requests..." }` / `{ "error": "Too many authentication attempts..." }` | Exceeded `100` / 15m global or `15` / 15m auth rate limit |
-| `502` | `BAD_GATEWAY` | `"Failed to fetch movie data from TMDB: <reason>"` | Upstream TMDb API error or network failure |
-| `500` | `INTERNAL_SERVER_ERROR` | `"Internal Server Error"` | Unexpected unhandled exception |
+| HTTP Status | Code                      | Message                                                                                                                                                                           | Cause                                                                            |
+| ----------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `400`       | `VALIDATION_ERROR`        | Specific Zod issue message / `"Invalid movie ID"` / `"Invalid pagination query parameters"` / `"Invalid JSON payload"`                                                            | Request body, query, path parameter, or JSON syntax failed validation            |
+| `401`       | `UNAUTHORIZED`            | `"Authentication required"` / `"Invalid or expired authentication token"` / `"Invalid email or password"` / `"User no longer exists"`                                             | Missing/invalid/expired `token` cookie, wrong login credentials, or deleted user |
+| `404`       | `NOT_FOUND`               | `"Route not found"` / `"Movie with ID <tmdbId> not found in TMDB"` / `"Movie with ID <tmdbId> not found in favorites"` / `"Movie with ID <tmdbId> not found in user's favorites"` | Unmatched route or missing movie/favorite                                        |
+| `409`       | `DUPLICATE_ERROR`         | `"Email is already registered"` / `"Favorite already exists"`                                                                                                                     | Email already exists on `/register` or favorite already exists for user          |
+| `413`       | — _(custom envelope)_     | `{ "error": "Payload Too Large", "message": "Request body cannot exceed 10KB." }`                                                                                                 | Request body exceeds `10KB` limit                                                |
+| `429`       | — _(rate-limit envelope)_ | `{ "error": "Too many requests..." }` / `{ "error": "Too many authentication attempts..." }`                                                                                      | Exceeded `100` / 15m global or `15` / 15m auth rate limit                        |
+| `502`       | `BAD_GATEWAY`             | `"Failed to fetch movie data from TMDB: <reason>"`                                                                                                                                | Upstream TMDb API error or network failure                                       |
+| `500`       | `INTERNAL_SERVER_ERROR`   | `"Internal Server Error"`                                                                                                                                                         | Unexpected unhandled exception                                                   |
 
 ---
 

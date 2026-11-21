@@ -15,7 +15,10 @@ function createRateLimiter(options: {
     legacyHeaders: false,
     ...(options.skipInTest ? { skip: () => env.nodeEnv === "test" } : {}),
     message: {
-      error: options.message,
+      error: {
+        code: "RATE_LIMIT_EXCEEDED",
+        message: options.message,
+      },
     },
   });
 }

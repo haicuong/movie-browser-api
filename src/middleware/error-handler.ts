@@ -61,8 +61,10 @@ export default function errorHandler(
     });
   } else if (isPayloadTooLargeError(err)) {
     return res.status(413).json({
-      error: "Payload Too Large",
-      message: "Request body cannot exceed 10KB.",
+      error: {
+        code: "PAYLOAD_TOO_LARGE",
+        message: "Request body cannot exceed 10KB.",
+      },
     });
   } else if (err instanceof AppError) {
     return res.status(err.httpStatus).json({

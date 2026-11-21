@@ -40,7 +40,7 @@ async function fetchAndCacheMovie(parsedId: number): Promise<Movie> {
     const movie: Movie = {
       tmdbId: parsedId,
       title: tmdbResponse.body.title,
-      poster_path: tmdbResponse.body.poster_path ?? null,
+      posterPath: tmdbResponse.body.poster_path ?? null,
       overview: tmdbResponse.body.overview || "No overview available.",
     };
 
@@ -50,13 +50,13 @@ async function fetchAndCacheMovie(parsedId: number): Promise<Movie> {
       where: { tmdbId: validatedMovie.tmdbId },
       update: {
         title: validatedMovie.title,
-        posterPath: validatedMovie.poster_path,
+        posterPath: validatedMovie.posterPath,
         overview: validatedMovie.overview,
       },
       create: {
         tmdbId: validatedMovie.tmdbId,
         title: validatedMovie.title,
-        posterPath: validatedMovie.poster_path,
+        posterPath: validatedMovie.posterPath,
         overview: validatedMovie.overview,
       },
     });
@@ -96,7 +96,7 @@ export default async function createFavorite(
     movie = {
       tmdbId: dbMovie.tmdbId,
       title: dbMovie.title,
-      poster_path: dbMovie.posterPath,
+      posterPath: dbMovie.posterPath,
       overview: dbMovie.overview,
     };
   }

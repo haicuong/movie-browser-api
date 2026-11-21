@@ -68,7 +68,7 @@ describe("POST /favorites/:tmdbId", () => {
     expect(response.body).toEqual({
       tmdbId: DUMMY_MOVIE.tmdbId,
       title: DUMMY_MOVIE.title,
-      poster_path: DUMMY_MOVIE.posterPath,
+      posterPath: DUMMY_MOVIE.posterPath,
       overview: DUMMY_MOVIE.overview,
     });
     expect(tmdbRequest).toHaveBeenCalledTimes(1);
@@ -122,7 +122,13 @@ describe("POST /favorites/:tmdbId", () => {
   test("returns 400 VALIDATION_ERROR for non-digit suffixes and INT4 overflow movie IDs", async () => {
     const { agent } = await createAuthenticatedAgent();
 
-    for (const invalidId of ["550abc", "550.9", "550e2", "2147483648", "99999999999"]) {
+    for (const invalidId of [
+      "550abc",
+      "550.9",
+      "550e2",
+      "2147483648",
+      "99999999999",
+    ]) {
       const response = await agent.post(`/favorites/${invalidId}`);
       expect(response.status).toBe(400);
       expect(response.body.error).toEqual({
@@ -140,14 +146,12 @@ describe("POST /favorites/:tmdbId", () => {
     >("../services/tmdb-proxy.js");
     vi.mocked(tmdbRequest).mockImplementationOnce(actualTmdbRequest);
 
-    const fetchSpy = vi
-      .spyOn(globalThis, "fetch")
-      .mockResolvedValueOnce(
-        new Response("<html><body>Bad Gateway</body></html>", {
-          status: 200,
-          headers: { "content-type": "text/html" },
-        }),
-      );
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response("<html><body>Bad Gateway</body></html>", {
+        status: 200,
+        headers: { "content-type": "text/html" },
+      }),
+    );
 
     try {
       const response = await agent.post(`/favorites/${DUMMY_MOVIE.tmdbId}`);
@@ -227,7 +231,10 @@ describe("GET /favorites", () => {
       await createAuthenticatedAgent("alice@example.com");
     const { userId: bobId } = await createAuthenticatedAgent("bob@example.com");
 
-    const aliceMovie = await seedDummyMovie({ tmdbId: 123, title: "Alice Movie" });
+    const aliceMovie = await seedDummyMovie({
+      tmdbId: 123,
+      title: "Alice Movie",
+    });
     const bobMovie = await seedDummyMovie({ tmdbId: 456, title: "Bob Movie" });
 
     await prisma.favorite.create({
@@ -291,10 +298,10 @@ describe("DELETE /favorites/:tmdbId", () => {
   });
 
   test("returns 404 Not Found when trying to delete another user's favorite", async () => {
-    const { userId: aliceId } = await createAuthenticatedAgent(
-      "alice@example.com",
-    );
-    const { agent: bobAgent } = await createAuthenticatedAgent("bob@example.com");
+    const { userId: aliceId } =
+      await createAuthenticatedAgent("alice@example.com");
+    const { agent: bobAgent } =
+      await createAuthenticatedAgent("bob@example.com");
     const movie = await seedDummyMovie();
     await prisma.favorite.create({
       data: { userId: aliceId, tmdbId: movie.tmdbId },
