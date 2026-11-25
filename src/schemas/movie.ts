@@ -14,7 +14,7 @@ export const MovieIdSchema = zod.preprocess(
   },
   zod
     .number()
-    .int("Movie ID must be a positive integer")
+    .int()
     .min(1, "Movie ID must be a positive integer")
     .max(PG_INT4_MAX, "Movie ID must be a 32-bit positive integer"),
 );

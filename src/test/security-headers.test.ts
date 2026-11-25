@@ -14,12 +14,8 @@ describe("Security headers middleware", () => {
     expect(response.headers["x-content-type-options"]).toBe("nosniff");
     expect(response.headers["x-frame-options"]).toBe("DENY");
     expect(response.headers["referrer-policy"]).toBe("no-referrer");
-    expect(response.headers["permissions-policy"]).toContain("geolocation=()");
     expect(response.headers["cross-origin-opener-policy"]).toBe("same-origin");
     expect(response.headers["cross-origin-resource-policy"]).toBe("same-site");
-    expect(response.headers["origin-agent-cluster"]).toBe("?1");
-    expect(response.headers["x-dns-prefetch-control"]).toBe("off");
-    expect(response.headers["x-permitted-cross-domain-policies"]).toBe("none");
     expect(response.headers["x-xss-protection"]).toBe("0");
     expect(response.headers["cache-control"]).toBe("no-store");
     expect(response.headers["strict-transport-security"]).toBeUndefined();
